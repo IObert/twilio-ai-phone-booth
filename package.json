@@ -9,13 +9,14 @@
 		"dev": "ts-node --esm server.ts"
 	},
 	"devDependencies": {
-		"typescript": "^5.0.0",
+		"@types/node": "^20.0.0",
 		"ts-node": "^10.9.0",
-		"@types/node": "^20.0.0"
+		"typescript": "^5.0.0"
 	},
 	"dependencies": {
-		"twilio-agent-connect": "^1.0.2",
 		"dotenv": "^17.4.2",
-		"openai": "^6.38.0"
+		"openai": "^6.38.0",
+		"twilio": "^6.0.2",
+		"twilio-agent-connect": "^1.0.2"
 	}
 }

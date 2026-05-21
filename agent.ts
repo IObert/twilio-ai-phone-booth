@@ -1,10 +1,12 @@
 import { config } from "dotenv";
 import OpenAI from "openai";
+import twilio from "twilio";
 import { MemoryPromptBuilder } from "twilio-agent-connect";
 import type { ConversationSession, TACMemoryResponse } from "twilio-agent-connect";
 
 config();
 const openai = new OpenAI();
+const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
 const BASE_URL = "https://mobert.ngrok.io/api/beans";
 
@@ -104,6 +106,18 @@ const tools: OpenAI.Chat.ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "end_call",
+      description: "Terminates the current phone call. Call this when the user asks to hang up, end the call, or says goodbye and is clearly done.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    },
+  },
 ];
 
 const TOOL_URLS: Record<string, string> = {
@@ -128,6 +142,7 @@ export async function handleMessage(
   message: string,
   memory: TACMemoryResponse | undefined,
   session: ConversationSession,
+  getCallSid: () => string | undefined,
 ): Promise<string> {
   const systemPrompt = MemoryPromptBuilder.compose(SYSTEM_INSTRUCTIONS, memory, session);
 
@@ -154,10 +169,24 @@ export async function handleMessage(
     for (const toolCall of assistantMessage.tool_calls) {
       if (toolCall.type !== "function") continue;
       let result: string;
-      try {
-        result = await executeTool(toolCall.function.name, JSON.parse(toolCall.function.arguments));
-      } catch (err) {
-        result = JSON.stringify({ error: err instanceof Error ? err.message : String(err) });
+      if (toolCall.function.name === "end_call") {
+        const callSid = getCallSid();
+        if (callSid) {
+          try {
+            await twilioClient.calls(callSid).update({ status: "completed" });
+            result = "Call terminated.";
+          } catch (err) {
+            result = JSON.stringify({ error: err instanceof Error ? err.message : String(err) });
+          }
+        } else {
+          result = JSON.stringify({ error: "No active call SID found." });
+        }
+      } else {
+        try {
+          result = await executeTool(toolCall.function.name, JSON.parse(toolCall.function.arguments));
+        } catch (err) {
+          result = JSON.stringify({ error: err instanceof Error ? err.message : String(err) });
+        }
       }
       history.push({ role: "tool", tool_call_id: toolCall.id, content: result });
     }
