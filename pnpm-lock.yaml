@@ -11,6 +11,9 @@ importers:
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
+      fastify:
+        specifier: ^5.8.5
+        version: 5.8.5
       openai:
         specifier: ^6.38.0
         version: 6.38.0(ws@8.20.1)(zod@4.4.3)
