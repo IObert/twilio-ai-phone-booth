@@ -185,7 +185,6 @@ function dispatchNext(convId: string, state: ConversationState): void {
   const p = next.payload as Record<string, unknown>;
   const input = p.input as Array<unknown>;
   const last = input[input.length - 1] as Record<string, unknown>;
-  console.log(`[${convId}] OpenAI→ response.create  msgs=${input.length}  last=${String(last?.content ?? last?.type ?? "").slice(0, 60)}`);
   wsSend(state, next.payload);
 }
 
@@ -248,7 +247,6 @@ function createSession(
 
 export function warmSession(callSid: string): void {
   if (!sessions.has(callSid)) {
-    console.log(`[${callSid}] Pre-warming OpenAI WS`);
     createSession(callSid, () => undefined);
   }
 }
@@ -269,13 +267,13 @@ async function handleOpenAIEvent(
   state: ConversationState,
   event: Record<string, unknown>,
 ): Promise<void> {
-  console.log(`[${convId}] ← ${event.type}`);
 
   if (event.type === "response.output_text.delta") {
     if (state.stream) pushToken(state.stream, event.delta as string);
 
   } else if (event.type === "response.output_text.done") {
     state.input.push({ role: "assistant", content: event.text as string });
+    console.log(`[${convId}] full response: ${event.text}`);
 
   } else if (event.type === "response.output_item.added") {
     const item = event.item as { type: string; id: string; name?: string; call_id?: string } | undefined;
@@ -322,7 +320,6 @@ async function handleOpenAIEvent(
     const response = event.response as { output?: OutputItem[] } | undefined;
     const hasFunctionCall = response?.output?.some((o) => o.type === "function_call");
     if (!hasFunctionCall) {
-      console.log(`[${convId}] stream done`);
       if (state.stream) { finishStream(state.stream); state.stream = null; }
       state.busy = false;
       dispatchNext(convId, state);

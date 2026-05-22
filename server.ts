@@ -18,7 +18,6 @@ let pendingCallSid: string | undefined;
 
 voiceChannel.on("setup", ({ callSid }: { callSid: string }) => {
   pendingCallSid = callSid;
-  console.log(`Voice channel setup for callSid ${callSid}`);
   warmSession(callSid);
 });
 
