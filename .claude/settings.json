@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /Users/mobert/Desktop/tac-voice log --oneline)"
+    ]
+  }
+}

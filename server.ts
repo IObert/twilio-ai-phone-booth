@@ -2,6 +2,7 @@ import { config } from "dotenv";
 import Fastify from "fastify";
 import { TAC, TACConfig, TACServer, VoiceChannel } from "twilio-agent-connect";
 import { clearConversation, handleMessage, promoteSession, warmSession } from "./agent.ts";
+import { registerFrontendRoutes } from "./frontend.ts";
 
 config();
 
@@ -59,8 +60,16 @@ tac.onConversationEnded(({ session }) => {
 
 const app = Fastify({ logger: true, trustProxy: true });
 
-// Register your own routes here, e.g.:
 app.get("/health", async () => ({ status: "ok" }));
+
+// Frontend API routes + WebSocket handlers
+await registerFrontendRoutes(app);
+
+// Serve public/ folder (scenario.html, call.html, assets)
+await app.register(import("@fastify/static"), {
+  root: new URL("./public", import.meta.url).pathname,
+  prefix: "/",
+});
 
 const server = new TACServer(tac, {
   fastifyInstance: app,

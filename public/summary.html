@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Owl Beans — Call Summary</title>
+<style>
+  :root {
+    --bg: #0d0d12;
+    --panel: #161622;
+    --panel2: #1e1e2e;
+    --accent: #7c5cfc;
+    --accent2: #e8a838;
+    --green: #3ecf8e;
+    --yellow: #f5c842;
+    --red: #ff4d6d;
+    --text: #f0eef8;
+    --muted: #8b88a8;
+    --radius: 18px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+  }
+
+  .blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(140px);
+    opacity: 0.12;
+    pointer-events: none;
+  }
+  .blob-1 { width: 500px; height: 500px; background: var(--accent); top: -160px; right: -100px; }
+  .blob-2 { width: 400px; height: 400px; background: var(--accent2); bottom: -120px; left: -80px; }
+
+  /* ── header ── */
+  header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 20px 48px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    background: var(--panel);
+    position: relative;
+    z-index: 1;
+  }
+  .header-icon { font-size: 30px; }
+  .header-title { font-size: 22px; font-weight: 800; }
+  .header-sub { font-size: 13px; color: var(--muted); margin-top: 1px; }
+  .header-done {
+    margin-left: auto;
+    padding: 7px 18px;
+    border-radius: 50px;
+    background: rgba(62,207,142,0.12);
+    color: var(--green);
+    font-size: 13px;
+    font-weight: 600;
+    display: flex; align-items: center; gap: 7px;
+  }
+
+  /* ── main ── */
+  main {
+    flex: 1;
+    width: 100%;
+    max-width: 1100px;
+    padding: 48px 48px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+  }
+
+  .section-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  /* sentiment */
+  .sentiment-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    opacity: 0;
+    transform: translateY(16px);
+    animation: up 0.5s ease 0.1s forwards;
+  }
+  .sentiment-pill {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 28px;
+    border-radius: 50px;
+    font-size: 22px;
+    font-weight: 800;
+    border: 2px solid;
+  }
+  .sentiment-pill.positive { background: rgba(62,207,142,0.12); border-color: rgba(62,207,142,0.4); color: var(--green); }
+  .sentiment-pill.neutral  { background: rgba(232,168,56,0.12);  border-color: rgba(232,168,56,0.4);  color: var(--yellow); }
+  .sentiment-pill.negative { background: rgba(255,77,109,0.12);  border-color: rgba(255,77,109,0.4);  color: var(--red); }
+  .sentiment-icon { font-size: 28px; }
+
+  /* summary */
+  .summary-card {
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: var(--radius);
+    padding: 32px 36px;
+    opacity: 0;
+    transform: translateY(16px);
+    animation: up 0.5s ease 0.25s forwards;
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .summary-text {
+    font-size: 20px;
+    line-height: 1.7;
+    color: var(--text);
+    overflow-y: auto;
+    flex: 1;
+  }
+  .summary-text::first-letter { font-size: 1.4em; font-weight: 700; color: var(--accent2); }
+
+  /* ── inactivity overlay ── */
+  #inactOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  #inactOverlay.visible { display: flex; }
+  .inact-modal {
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 24px;
+    padding: 48px 56px;
+    text-align: center;
+    max-width: 460px;
+    width: 90%;
+    animation: popIn 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .inact-emoji { font-size: 56px; margin-bottom: 16px; }
+  .inact-title { font-size: 26px; font-weight: 800; margin-bottom: 10px; }
+  .inact-sub { font-size: 15px; color: var(--muted); margin-bottom: 32px; line-height: 1.5; }
+  .inact-countdown {
+    font-size: 64px;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 1;
+    margin-bottom: 32px;
+  }
+  .inact-actions { display: flex; gap: 14px; justify-content: center; }
+  .btn-ghost {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.18);
+    color: var(--text);
+    padding: 12px 28px;
+    border-radius: 50px;
+    font-size: 15px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.07); }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #a07cff);
+    border: none;
+    color: #fff;
+    padding: 12px 28px;
+    border-radius: 50px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 20px rgba(124,92,252,0.4);
+  }
+  .btn-primary:hover { transform: scale(1.04); }
+
+  @keyframes up    { to { opacity: 1; transform: none; } }
+  @keyframes popIn { from { opacity:0; transform: scale(0.85); } to { opacity:1; transform: scale(1); } }
+</style>
+</head>
+<body>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<header>
+  <div class="header-icon">☕</div>
+  <div>
+    <div class="header-title">Owl Beans — Jeff</div>
+    <div class="header-sub">Call Summary</div>
+  </div>
+  <div class="header-done">✓ Call complete</div>
+</header>
+
+<main>
+  <div class="sentiment-row">
+    <div>
+      <div class="section-label">Customer Sentiment</div>
+      <div class="sentiment-pill" id="sentimentPill">
+        <span class="sentiment-icon" id="sentimentIcon"></span>
+        <span id="sentimentLabel"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="summary-card">
+    <div class="section-label">Conversation Summary</div>
+    <div class="summary-text" id="summaryText"></div>
+  </div>
+</main>
+
+<!-- Inactivity popup -->
+<div id="inactOverlay">
+  <div class="inact-modal">
+    <div class="inact-emoji">👋</div>
+    <div class="inact-title">Still there?</div>
+    <div class="inact-sub">Returning to the start screen in…</div>
+    <div class="inact-countdown" id="inactCount">10</div>
+    <div class="inact-actions">
+      <button class="btn-ghost" id="btnStay">Keep reviewing</button>
+      <button class="btn-primary" id="btnReturn">Return to start</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Mock payload (replace with real API call when ready) ──────────────────
+const MOCK = {"operatorResults":[{"operator":{"displayName":"Sentiment"},"outputFormat":"CLASSIFICATION","result":{"label":"neutral"}},{"operator":{"displayName":"Summary"},"outputFormat":"TEXT","result":{"text":"The conversation involved a customer seeking assistance in ordering a latte macchiato. The agent confirmed the order details, specifically asking if the customer preferred regular milk or oat milk and whether they wanted it more coffee-forward or milky. The customer opted for a regular latte macchiato in a regular mug. The agent reiterated the order to ensure accuracy, noting that the menu did not specifically list the latte macchiato."}}]};
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function render(data) {
+  for (const r of data.operatorResults ?? []) {
+    const name = r.operator?.displayName ?? '';
+    if (r.outputFormat === 'CLASSIFICATION' && name === 'Sentiment') {
+      const label = r.result?.label ?? 'unknown';
+      const icons = { positive: '😊', neutral: '😐', negative: '😟' };
+      const pill = document.getElementById('sentimentPill');
+      pill.classList.add(label);
+      document.getElementById('sentimentIcon').textContent = icons[label] ?? '💬';
+      document.getElementById('sentimentLabel').textContent =
+        label.charAt(0).toUpperCase() + label.slice(1);
+    }
+    if (r.outputFormat === 'TEXT' && name === 'Summary') {
+      document.getElementById('summaryText').textContent = r.result?.text ?? '';
+    }
+  }
+}
+
+render(MOCK);
+
+// ── Inactivity logic ───────────────────────────────────────────────────────
+const overlay   = document.getElementById('inactOverlay');
+const countEl   = document.getElementById('inactCount');
+const btnStay   = document.getElementById('btnStay');
+const btnReturn = document.getElementById('btnReturn');
+
+let idleTimer      = null;   // fires after 5s of no activity → show popup
+let countdownTimer = null;   // fires every 1s once popup is shown
+let countdown      = 10;
+
+function resetIdle() {
+  clearTimeout(idleTimer);
+  // Only restart idle timer if popup is not visible
+  if (!overlay.classList.contains('visible')) {
+    idleTimer = setTimeout(showPopup, 5000);
+  }
+}
+
+function showPopup() {
+  countdown = 10;
+  countEl.textContent = countdown;
+  overlay.classList.add('visible');
+  countdownTimer = setInterval(() => {
+    countdown--;
+    countEl.textContent = countdown;
+    if (countdown <= 0) goToStart();
+  }, 1000);
+}
+
+function dismissPopup() {
+  clearInterval(countdownTimer);
+  overlay.classList.remove('visible');
+  resetIdle();
+}
+
+function goToStart() {
+  clearInterval(countdownTimer);
+  clearTimeout(idleTimer);
+  location.href = '/start';
+}
+
+btnStay.addEventListener('click', dismissPopup);
+btnReturn.addEventListener('click', goToStart);
+
+// Track all forms of user activity
+['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt =>
+  document.addEventListener(evt, resetIdle, { passive: true })
+);
+
+// Start the idle timer immediately on page load
+resetIdle();
+</script>
+</body>
+</html>
