@@ -171,9 +171,6 @@ function dispatchNext(convId: string, state: ConversationState): void {
   const next = state.requestQueue.shift()!;
   state.busy = true;
   state.stream = next.ctrl;
-  const p = next.payload as Record<string, unknown>;
-  const input = p.input as Array<unknown>;
-  const last = input[input.length - 1] as Record<string, unknown>;
   wsSend(state, next.payload);
 }
 
