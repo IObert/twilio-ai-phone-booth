@@ -239,23 +239,10 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
 
   // ── POST /api/beans/coffeeQuestions (AI tool callback) ────────────────────
   app.post("/api/beans/coffeeQuestions", async (req) => {
-    const headers = req.headers as Record<string, string>;
-    const callSid = headers["x-call-sid"] ?? "";
-
-    try {
-      const item = await getSyncItem(callSid).fetch();
-      const current = item.data as CallTrackerItem;
-      await getSyncItem(callSid).update({
-        ttl: SYNC_ITEM_TTL,
-        data: {
-          ...current,
-          tasks: { ...current.tasks, coffee_question_asked: true },
-        },
-      });
-    } catch (err) {
-      console.error("[coffeeQuestions] Sync error:", err);
-    }
-
+    const callSid = (req.headers as Record<string, string>)["x-call-sid"] ?? "";
+    const item = await getSyncItem(callSid).fetch();
+    const current = item.data as CallTrackerItem;
+    await updateCallTracker(callSid, { tasks: { ...current.tasks, coffee_question_asked: true } });
     return { ok: true };
   });
 
