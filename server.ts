@@ -42,7 +42,6 @@ voiceChannel.on(
 
 tac.onMessageReady(async ({ conversationId, message, memory, session }) => {
   const convId = conversationId as string;
-  console.log(`Received message for conversation ${convId}: ${message}`);
   const stream = handleMessage(
     convId,
     message,
