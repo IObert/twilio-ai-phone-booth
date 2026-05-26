@@ -112,6 +112,7 @@
   .sentiment-pill.positive { background: rgba(62,207,142,0.12); border-color: rgba(62,207,142,0.4); color: var(--green); }
   .sentiment-pill.neutral  { background: rgba(232,168,56,0.12);  border-color: rgba(232,168,56,0.4);  color: var(--yellow); }
   .sentiment-pill.negative { background: rgba(255,77,109,0.12);  border-color: rgba(255,77,109,0.4);  color: var(--red); }
+  .sentiment-pill.loading  { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); color: var(--muted); font-size: 14px; font-weight: 400; }
   .sentiment-icon { font-size: 28px; }
 
   /* summary */
@@ -135,7 +136,7 @@
     overflow-y: auto;
     flex: 1;
   }
-  .summary-text::first-letter { font-size: 1.4em; font-weight: 700; color: var(--accent2); }
+  .summary-text.loading { color: var(--muted); font-size: 15px; font-style: italic; }
 
   /* ── inactivity overlay ── */
   #inactOverlay {
@@ -218,16 +219,16 @@
   <div class="sentiment-row">
     <div>
       <div class="section-label">Customer Sentiment</div>
-      <div class="sentiment-pill" id="sentimentPill">
-        <span class="sentiment-icon" id="sentimentIcon"></span>
-        <span id="sentimentLabel"></span>
+      <div class="sentiment-pill loading" id="sentimentPill">
+        <span class="sentiment-icon" id="sentimentIcon">⏳</span>
+        <span id="sentimentLabel">Analysing…</span>
       </div>
     </div>
   </div>
 
   <div class="summary-card">
     <div class="section-label">Conversation Summary</div>
-    <div class="summary-text" id="summaryText"></div>
+    <div class="summary-text loading" id="summaryText">Generating summary…</div>
   </div>
 </main>
 
@@ -246,29 +247,53 @@
 </div>
 
 <script>
-// ── Mock payload (replace with real API call when ready) ──────────────────
-const MOCK = {"operatorResults":[{"operator":{"displayName":"Sentiment"},"outputFormat":"CLASSIFICATION","result":{"label":"neutral"}},{"operator":{"displayName":"Summary"},"outputFormat":"TEXT","result":{"text":"The conversation involved a customer seeking assistance in ordering a latte macchiato. The agent confirmed the order details, specifically asking if the customer preferred regular milk or oat milk and whether they wanted it more coffee-forward or milky. The customer opted for a regular latte macchiato in a regular mug. The agent reiterated the order to ensure accuracy, noting that the menu did not specifically list the latte macchiato."}}]};
+const params = new URLSearchParams(location.search);
+const CALL_SID = params.get('callSid') ?? '';
 
 // ── Render ─────────────────────────────────────────────────────────────────
-function render(data) {
-  for (const r of data.operatorResults ?? []) {
-    const name = r.operator?.displayName ?? '';
-    if (r.outputFormat === 'CLASSIFICATION' && name === 'Sentiment') {
-      const label = r.result?.label ?? 'unknown';
-      const icons = { positive: '😊', neutral: '😐', negative: '😟' };
-      const pill = document.getElementById('sentimentPill');
-      pill.classList.add(label);
-      document.getElementById('sentimentIcon').textContent = icons[label] ?? '💬';
-      document.getElementById('sentimentLabel').textContent =
-        label.charAt(0).toUpperCase() + label.slice(1);
-    }
-    if (r.outputFormat === 'TEXT' && name === 'Summary') {
-      document.getElementById('summaryText').textContent = r.result?.text ?? '';
-    }
+function render(cintel) {
+  if (cintel.sentiment) {
+    const label = cintel.sentiment;
+    const icons = { positive: '😊', neutral: '😐', negative: '😟' };
+    const pill = document.getElementById('sentimentPill');
+    pill.classList.remove('loading');
+    pill.classList.add(label);
+    document.getElementById('sentimentIcon').textContent = icons[label] ?? '💬';
+    document.getElementById('sentimentLabel').textContent =
+      label.charAt(0).toUpperCase() + label.slice(1);
+  }
+  if (cintel.summary) {
+    const el = document.getElementById('summaryText');
+    el.classList.remove('loading');
+    el.textContent = cintel.summary;
   }
 }
 
-render(MOCK);
+// ── Twilio Sync ────────────────────────────────────────────────────────────
+async function initSync() {
+  const tokenRes = await fetch('/api/getSyncToken', { method: 'POST' });
+  const { token } = await tokenRes.json();
+  const syncClient = new Twilio.Sync.Client(token);
+  const map = await syncClient.map('callTracker');
+
+  async function tryRender() {
+    const item = await map.get(CALL_SID).catch(() => null);
+    if (item?.data?.cintel) {
+      render(item.data.cintel);
+      return true;
+    }
+    return false;
+  }
+
+  if (await tryRender()) return;
+
+  // Results not yet available — wait for the update
+  map.on('itemUpdated', ({ item }) => {
+    debugger
+    if (item.key !== CALL_SID) return;
+    if (item.data?.cintel) render(item.data.cintel);
+  });
+}
 
 // ── Inactivity logic ───────────────────────────────────────────────────────
 const overlay   = document.getElementById('inactOverlay');
@@ -284,7 +309,7 @@ function resetIdle() {
   clearTimeout(idleTimer);
   // Only restart idle timer if popup is not visible
   if (!overlay.classList.contains('visible')) {
-    idleTimer = setTimeout(showPopup, 5000);
+    idleTimer = setTimeout(showPopup, 15000);
   }
 }
 
@@ -322,5 +347,9 @@ btnReturn.addEventListener('click', goToStart);
 // Start the idle timer immediately on page load
 resetIdle();
 </script>
+
+<!-- Twilio Sync JS SDK -->
+<script src="https://media.twiliocdn.com/sdk/js/sync/releases/3.0.1/twilio-sync.min.js"
+        onload="initSync()" onerror="console.error('Sync SDK failed to load')"></script>
 </body>
 </html>

@@ -10,6 +10,20 @@ const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_A
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 const BASE_URL = "https://mobert.ngrok.io/api/beans";
 
+async function appendSyncHistory(callSid: string, role: "user" | "ai", text: string): Promise<void> {
+  const syncServiceSid = process.env.TWILIO_SYNC_SERVICE_SID!;
+  const item = await twilioClient.sync.v1.services(syncServiceSid)
+    .syncMaps("callTracker").syncMapItems(callSid).fetch();
+  const current = item.data as { status: string; tasks: object; history: { role: string; text: string }[] };
+  await twilioClient.sync.v1.services(syncServiceSid)
+    .syncMaps("callTracker").syncMapItems(callSid).update({
+      data: { ...current, history: [...current.history, { role, text }] },
+      ttl: 14400,
+    });
+}
+
+export const WELCOME_GREETING = "Welcome to our barista expert service! How can I help you with your coffee today?";
+
 const SYSTEM_INSTRUCTIONS = `You are Jeff, a friendly and knowledgeable AI assistant working at Owl Beans during Twilio SIGNAL World Tour Berlin 2026.
 
 Your goal is to have natural coffee conversations with customers and help them complete one of two tasks only:
@@ -101,10 +115,12 @@ const TOOL_URLS: Record<string, string> = {
   submit_order: `${BASE_URL}/order`,
 };
 
-async function executeTool(name: string, args: unknown): Promise<string> {
+async function executeTool(name: string, args: unknown, callSid: string | undefined): Promise<string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (callSid) headers["x-call-sid"] = callSid;
   const res = await fetch(TOOL_URLS[name], {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(args),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -274,6 +290,11 @@ async function handleOpenAIEvent(
   } else if (event.type === "response.output_text.done") {
     state.input.push({ role: "assistant", content: event.text as string });
     console.log(`[${convId}] full response: ${event.text}`);
+    const callSid = state.getCallSid();
+    if (callSid) {
+      appendSyncHistory(callSid, "ai", event.text as string)
+        .catch((err: unknown) => console.error(`[${convId}] appendSyncHistory failed:`, err));
+    }
 
   } else if (event.type === "response.output_item.added") {
     const item = event.item as { type: string; id: string; name?: string; call_id?: string } | undefined;
@@ -300,7 +321,7 @@ async function handleOpenAIEvent(
         result = JSON.stringify({ error: "No active call SID found." });
       }
     } else {
-      try { result = await executeTool(fc.name, JSON.parse(fc.args || "{}")); }
+      try { result = await executeTool(fc.name, JSON.parse(fc.args || "{}"), state.getCallSid()); }
       catch (err) { result = JSON.stringify({ error: err instanceof Error ? err.message : String(err) }); }
     }
 
@@ -352,6 +373,8 @@ export function handleMessage(
     state.input.push({ role: "system", content: systemPrompt });
   }
 
+  const sid = state.getCallSid();
+  if (sid) appendSyncHistory(sid, "user", message).catch((err: unknown) => console.error(`[${convId}] appendSyncHistory user failed:`, err));
   state.input.push({ role: "user", content: message });
 
   const ctrl: StreamController = { tokenQueue: [], notify: null, finished: false, error: null };

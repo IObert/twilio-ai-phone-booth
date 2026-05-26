@@ -302,13 +302,12 @@
 <script>
 // ── Config ─────────────────────────────────────────────────────────────────
 const params = new URLSearchParams(location.search);
-const SESSION_CODE = params.get('code') ?? '';
-const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/ws/callConversation`;
+const CALL_SID = params.get('callSid') ?? '';
 
 // ── State ──────────────────────────────────────────────────────────────────
 let callEnded = false;
-let syncClient = null;
 let viSid = null;
+let renderedMessageCount = 0;
 
 // ── Elements ───────────────────────────────────────────────────────────────
 const feed = document.getElementById('feed');
@@ -320,10 +319,6 @@ const viPanel = document.getElementById('viPanel');
 const viIframe = document.getElementById('viIframe');
 const viClose = document.getElementById('viClose');
 const footerHint = document.getElementById('footerHint');
-const inactivityBox = document.getElementById('inactivityBox');
-const inactCounter = document.getElementById('inactCounter');
-const inactKeep = document.getElementById('inactKeep');
-const inactReturn = document.getElementById('inactReturn');
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function scrollFeed() {
@@ -413,58 +408,65 @@ function addBadge(text) {
   badgeList.appendChild(b);
 }
 
-// ── Segment profile polling ────────────────────────────────────────────────
-async function loadSegmentProfile() {
-  try {
-    const res = await fetch('/api/getSegmentProfile', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: SESSION_CODE }),
-    });
-    if (!res.ok) return;
-    const { traits } = await res.json();
-    if (traits?.name) profileName.textContent = traits.name;
-    const traitMap = {
-      favoriteProduct: (v) => `Loves ${v}`,
-      milkPreference: (v) => `Prefers ${v}`,
-      isRegular: (v) => v ? 'Regular Customer' : null,
-    };
-    for (const [key, fn] of Object.entries(traitMap)) {
-      if (traits?.[key] != null) {
-        const label = fn(traits[key]);
-        if (label) addBadge(label);
-      }
-    }
-    // Generic remaining traits
-    for (const [k, v] of Object.entries(traits ?? {})) {
-      if (!['name','email','sessionCode','userId'].includes(k) && typeof v === 'string') {
-        addBadge(`${k}: ${v}`);
-      }
-    }
-  } catch {}
-}
-
-// ── Twilio Sync (tasks) ────────────────────────────────────────────────────
+// ── Twilio Sync (status + history + tasks + viSid) ───────────────────────
 async function initSync() {
-  // Dynamically load Twilio Sync SDK (CDN placeholder)
-  // In production, bundle @twilio/conversations or use the official Sync JS SDK
   try {
     const tokenRes = await fetch('/api/getSyncToken', { method: 'POST' });
     const { token } = await tokenRes.json();
-
-    // Twilio Sync JS SDK — loaded from CDN
-    if (typeof Twilio === 'undefined') return;
     const syncClient = new Twilio.Sync.Client(token);
-    const map = await syncClient.map(SESSION_CODE);
-    const item = await map.get('tasks');
-    applyTaskState(item?.value ?? {});
-    map.on('itemUpdated', ({ item }) => applyTaskState(item.value));
-  } catch {}
+    const map = await syncClient.map('callTracker');
+
+    // Load initial state from the single item keyed by callSid
+    const existing = await map.get(CALL_SID).catch(() => null);
+    if (existing) {
+      const d = existing.data;
+      applyStatus(d.status);
+      applyTaskState(d.tasks ?? {});
+      applyHistory(d.history ?? []);
+      applyViSid(d.viSid);
+    }
+
+    map.on('itemUpdated', ({ item }) => {
+      if (item.key !== CALL_SID) return;
+      applyStatus(item.data.status);
+      applyTaskState(item.data.tasks ?? {});
+      applyHistory(item.data.history ?? []);
+      applyViSid(item.data.viSid);
+    });
+  } catch (err) {
+    console.error('[initSync]', err);
+  }
+}
+
+function applyStatus(data) {
+  const value = data;
+  if (value === 'in-progress') {
+    setStatus('Live', 'var(--green)');
+    footerHint.textContent = '';
+  } else if (value === 'completed' && !callEnded) {
+    callEnded = true;
+    setStatus('Call ended', 'var(--muted)');
+    addBookend('📞 Call Ended');
+    setTimeout(() => { location.href = `/summary?callSid=${CALL_SID}`; }, 1500);
+  }
 }
 
 function applyTaskState(data) {
   if (data.coffee_question_asked) markTask('task-question');
   if (data.coffee_order_placed) markTask('task-order');
+}
+
+function applyHistory(messages) {
+  const newMessages = messages.slice(renderedMessageCount);
+  for (const m of newMessages) addMessage(m.role, m.text);
+  renderedMessageCount = messages.length;
+}
+
+function applyViSid(sid) {
+  if (!sid || viSid) return;
+  viSid = sid;
+  viBtn.style.display = 'inline-block';
+  footerHint.textContent = '';
 }
 
 // ── Voice Intelligence ─────────────────────────────────────────────────────
@@ -480,86 +482,10 @@ viClose.addEventListener('click', () => {
   viIframe.src = 'about:blank';
 });
 
-// ── WebSocket ──────────────────────────────────────────────────────────────
-let ws;
-let heartbeatInterval;
-
-function connectWS() {
-  ws = new WebSocket(WS_URL);
-
-  ws.onopen = () => {
-    ws.send(JSON.stringify({ type: 'pollHistory', code: SESSION_CODE }));
-    heartbeatInterval = setInterval(() => {
-      fetch('/api/heartbeat', { method: 'POST' }).catch(() => {});
-    }, 5000);
-  };
-
-  ws.onmessage = (e) => {
-    let msg;
-    try { msg = JSON.parse(e.data); } catch { return; }
-
-    switch (msg.type) {
-      case 'history':
-        for (const m of (msg.messages ?? [])) {
-          addMessage(m.role, m.text);
-        }
-        break;
-
-      case 'aiIntro':
-        addMessage('ai', msg.text);
-        break;
-
-      case 'startCall':
-        setStatus('Live', 'var(--green)');
-        footerHint.textContent = '';
-        loadSegmentProfile();
-        initSync();
-        // Poll segment profile again mid-call to pick up inferred traits
-        setTimeout(loadSegmentProfile, 15000);
-        setTimeout(loadSegmentProfile, 30000);
-        break;
-
-      case 'userTranscript':
-        if (msg.isFinal) addMessage('user', msg.text);
-        break;
-
-      case 'toolCard':
-        addToolCard(msg);
-        // Re-fetch segment after tool run to get fresh traits
-        setTimeout(loadSegmentProfile, 2000);
-        break;
-
-      case 'endCall':
-        callEnded = true;
-        setStatus('Call ended', 'var(--muted)');
-        addBookend('📞 Call Ended');
-        ws.send(JSON.stringify({ type: 'endCall' }));
-        setTimeout(() => { location.href = '/summary'; }, 1500);
-        break;
-
-      case 'voiceIntelligenceSid':
-        viSid = msg.sid;
-        viBtn.style.display = 'inline-block';
-        footerHint.textContent = '';
-        if (callEnded) {
-          // already showing footer — button is enough
-        }
-        break;
-    }
-  };
-
-  ws.onclose = () => {
-    clearInterval(heartbeatInterval);
-    if (!callEnded) setTimeout(connectWS, 2000);
-  };
-
-  ws.onerror = () => ws.close();
-}
-
-connectWS();
 </script>
 
-<!-- Twilio Sync JS SDK (CDN — swap for npm bundle in production) -->
-<script src="https://media.twiliocdn.com/sdk/js/sync/releases/3.0.1/twilio-sync.min.js"></script>
+<!-- Twilio Sync JS SDK must load before initSync() is called -->
+<script src="https://media.twiliocdn.com/sdk/js/sync/releases/3.0.1/twilio-sync.min.js"
+        onload="initSync()" onerror="console.error('Sync SDK failed to load')"></script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 import Fastify from "fastify";
 import { TAC, TACConfig, TACServer, VoiceChannel } from "twilio-agent-connect";
-import { clearConversation, handleMessage, promoteSession, warmSession } from "./agent.ts";
+import { clearConversation, handleMessage, promoteSession, warmSession, WELCOME_GREETING } from "./agent.ts";
 import { registerFrontendRoutes } from "./frontend.ts";
 
 config();
@@ -27,7 +27,7 @@ voiceChannel.on(
   ({ conversationId }: { conversationId: string }) => {
     if (pendingCallSid) {
       callSidByConversationId.set(conversationId, pendingCallSid);
-      promoteSession(pendingCallSid, conversationId, () => callSidByConversationId.get(conversationId));
+promoteSession(pendingCallSid, conversationId, () => callSidByConversationId.get(conversationId));
       pendingCallSid = undefined;
     }
   },
@@ -60,6 +60,19 @@ tac.onConversationEnded(({ session }) => {
 
 const app = Fastify({ logger: true, trustProxy: true });
 
+// Twilio webhooks POST application/x-www-form-urlencoded
+app.addContentTypeParser(
+  "application/x-www-form-urlencoded",
+  { parseAs: "string" },
+  (_, body, done) => {
+    try {
+      done(null, Object.fromEntries(new URLSearchParams(body as string)));
+    } catch (err) {
+      done(err as Error);
+    }
+  },
+);
+
 app.get("/health", async () => ({ status: "ok" }));
 
 // Frontend API routes + WebSocket handlers
@@ -73,10 +86,10 @@ await app.register(import("@fastify/static"), {
 
 const server = new TACServer(tac, {
   fastifyInstance: app,
-  webhookPaths: { cintel: "/cintel-callback" },
+  // webhookPaths: { cintel: "/cintel-callback" },
   conversationRelayConfig: {
     welcomeGreeting:
-      "Welcome to our barista expert service! How can I help you with your coffee today?",
+      WELCOME_GREETING,
     welcomeGreetingInterruptible: "any",
     // transcriptionProvider: "Deepgram",
     // speechModel: "flux",

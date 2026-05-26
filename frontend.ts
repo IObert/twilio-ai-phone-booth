@@ -1,55 +1,68 @@
 /**
  * Frontend API layer — all routes and WebSockets for the booth display.
  * Imported by server.ts and registered on the shared Fastify instance.
- *
- * All Twilio/Segment credentials are read from env at call time so this
- * module can be imported before dotenv runs its side-effects.
  */
 
 import type { FastifyInstance } from "fastify";
-import { WebSocketServer, WebSocket } from "ws";
-import type { IncomingMessage } from "http";
 import twilio from "twilio";
+import { WELCOME_GREETING } from "./agent.ts";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-interface ConversationClient {
-  ws: WebSocket;
-  code?: string;
+interface OperatorResult {
+  operator: { displayName: string };
+  outputFormat: "CLASSIFICATION" | "TEXT";
+  result: { label?: string; text?: string };
+  referenceIds?: string[];
 }
 
-interface ReadyClient {
-  ws: WebSocket;
+interface CintelSummary {
+  sentiment?: string;   // label from Sentiment operator
+  summary?: string;     // text from Summary operator
+  // TODO: add fields for additional operators here (e.g. topics, entities)
 }
+
+interface CallTrackerItem {
+  status: "calling" | "in-progress" | "completed";
+  tasks: { coffee_order_placed: boolean; coffee_question_asked: boolean };
+  history: { role: "user" | "ai"; text: string }[];
+  viSid?: string;
+  cintel?: CintelSummary;
+}
+
+// ─── constants ────────────────────────────────────────────────────────────────
+
+const SYNC_MAP_NAME = "callTracker";
+const SYNC_ITEM_TTL = 14400; // 4 hours in seconds
 
 // ─── in-process state ─────────────────────────────────────────────────────────
 
-// code → participant email (populated by startBoothCall, read by getSegmentProfile)
+// callSid → participant email
 const sessionEmail = new Map<string, string>();
-
-// conversationClients: subscribe to live call events (Screen 2)
-const conversationClients = new Set<ConversationClient>();
-
-// readyClients: home-screen keep-alive, can receive chooseScenario pushes
-const readyClients = new Set<ReadyClient>();
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-function randomCode(): string {
-  return String(Math.floor(1000 + Math.random() * 9000));
-}
-
-function broadcast(clients: Set<ConversationClient>, payload: unknown, code?: string): void {
-  const msg = JSON.stringify(payload);
-  for (const c of clients) {
-    if (code === undefined || c.code === code) {
-      if (c.ws.readyState === WebSocket.OPEN) c.ws.send(msg);
-    }
-  }
-}
-
 function getTwilio() {
   return twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!);
+}
+
+function getSyncItem(callSid: string) {
+  const syncServiceSid = process.env.TWILIO_SYNC_SERVICE_SID!;
+  return getTwilio().sync.v1.services(syncServiceSid)
+    .syncMaps(SYNC_MAP_NAME).syncMapItems(callSid);
+}
+
+async function updateCallTracker(callSid: string, patch: Partial<CallTrackerItem>): Promise<void> {
+  try {
+    const item = await getSyncItem(callSid).fetch();
+    const current = item.data as CallTrackerItem;
+    await getSyncItem(callSid).update({
+      data: { ...current, ...patch },
+      ttl: SYNC_ITEM_TTL,
+    });
+  } catch (err) {
+    console.error(`[sync] updateCallTracker error (${callSid}):`, err);
+  }
 }
 
 // ─── plugin ───────────────────────────────────────────────────────────────────
@@ -62,14 +75,32 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
   app.get("/call", (_, reply) => reply.sendFile("call.html"));
   app.get("/summary", (_, reply) => reply.sendFile("summary.html"));
 
+  // ── POST /cintel-callback (Conversation Intelligence results) ─────────────
+  app.post("/cintel-callback", async (req) => {
+    const body = req.body as { operatorResults?: OperatorResult[] } ?? {};
+    if (!body.operatorResults?.length) return { ok: true };
+
+    const cintel: CintelSummary = {};
+    for (const r of body.operatorResults) {
+      const name = r.operator?.displayName;
+      if (name === "Sentiment") cintel.sentiment = r.result.label;
+      if (name === "Summary")   cintel.summary   = r.result.text;
+      // TODO: add handling for additional operators here (e.g. topics, entities)
+    }
+
+    const callSids = [...new Set(
+      body.operatorResults.flatMap((r) => r.referenceIds ?? [])
+    )];
+
+    await Promise.all(callSids.map((callSid) => updateCallTracker(callSid, { cintel })));
+    return { ok: true };
+  });
+
   // ── POST /api/startBoothCall ───────────────────────────────────────────────
   app.post("/api/startBoothCall", async (req, reply) => {
     const body = req.body as Record<string, string> | undefined ?? {};
     const participantName: string = body.name ?? "Guest";
     const participantEmail: string = body.email ?? `guest-${Date.now()}@owlbeans.demo`;
-
-    const code = randomCode();
-    sessionEmail.set(code, participantEmail);
 
     const client = getTwilio();
     const syncServiceSid = process.env.TWILIO_SYNC_SERVICE_SID!;
@@ -77,21 +108,46 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
     const from = process.env.TWILIO_PHONE_NUMBER!;
     const ngrokBase = process.env.NGROK_BASE_URL ?? "https://mobert.ngrok.io";
 
-    // 1. Create Sync map entry
+    // 1. Place outbound call — callSid is the session identifier
+    let callSid: string;
     try {
-      await client.sync.v1.services(syncServiceSid).syncMaps(code).fetch().catch(() =>
-        client.sync.v1.services(syncServiceSid).syncMaps.create({ uniqueName: code })
-      );
-      // Seed initial task state
-      await client.sync.v1.services(syncServiceSid).syncMaps(code).syncMapItems.create({
-        key: "tasks",
-        data: { coffee_question_asked: false, coffee_order_placed: false },
-      }).catch(() => {}); // ignore if already exists
+      const call = await client.calls.create({
+        to: sipAddress,
+        from,
+        url: `${ngrokBase}/twiml`,
+        statusCallback: `${ngrokBase}/api/callStatus`,
+        statusCallbackMethod: "POST",
+        statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
+      });
+      callSid = call.sid;
+    } catch (err) {
+      console.error("[startBoothCall] Call error:", err);
+      return reply.code(500).send({ success: false, error: String(err) });
+    }
+
+    sessionEmail.set(callSid, participantEmail);
+
+    // 2. Ensure callTracker map exists, then seed the item for this call
+    try {
+      await client.sync.v1.services(syncServiceSid).syncMaps(SYNC_MAP_NAME)
+        .fetch().catch(() =>
+          client.sync.v1.services(syncServiceSid).syncMaps.create({ uniqueName: SYNC_MAP_NAME })
+        );
+      await client.sync.v1.services(syncServiceSid)
+        .syncMaps(SYNC_MAP_NAME).syncMapItems.create({
+          key: callSid,
+          ttl: SYNC_ITEM_TTL,
+          data: {
+            status: "calling",
+            tasks: { coffee_order_placed: false, coffee_question_asked: false },
+            history: [{ role: "ai", text: WELCOME_GREETING }],
+          } satisfies CallTrackerItem,
+        });
     } catch (err) {
       console.error("[startBoothCall] Sync error:", err);
     }
 
-    // 2. Segment identify (fire-and-forget)
+    // 3. Segment identify (fire-and-forget)
     try {
       const segmentWriteKey = process.env.SEGMENT_WRITE_KEY!;
       await fetch("https://api.segment.io/v1/identify", {
@@ -102,33 +158,15 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
         },
         body: JSON.stringify({
           userId: participantEmail,
-          traits: { name: participantName, email: participantEmail, sessionCode: code },
+          traits: { name: participantName, email: participantEmail },
         }),
       });
     } catch (err) {
       console.error("[startBoothCall] Segment error:", err);
     }
 
-    // 3. Place outbound call to SIP phone
-    try {
-      await client.calls.create({
-        to: sipAddress,
-        from,
-        url: `${ngrokBase}/twiml`,
-        statusCallback: `${ngrokBase}/api/transcriptions`,
-        statusCallbackMethod: "POST",
-        statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
-      });
-    } catch (err) {
-      console.error("[startBoothCall] Call error:", err);
-      return reply.code(500).send({ success: false, error: String(err) });
-    }
-
-    return { success: true, code };
+    return { success: true, callSid };
   });
-
-  // ── POST /api/heartbeat ────────────────────────────────────────────────────
-  app.post("/api/heartbeat", async () => ({ ok: true }));
 
   // ── POST /api/getSyncToken ─────────────────────────────────────────────────
   app.post("/api/getSyncToken", async () => {
@@ -145,33 +183,6 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
     return { token: token.toJwt() };
   });
 
-  // ── POST /api/getSegmentProfile ────────────────────────────────────────────
-  app.post("/api/getSegmentProfile", async (req, reply) => {
-    const { code } = req.body as { code?: string } ?? {};
-    if (!code) return reply.code(400).send({ error: "code required" });
-
-    const email = sessionEmail.get(code);
-    if (!email) return reply.code(404).send({ error: "unknown session" });
-
-    try {
-      const spaceId = process.env.SEGMENT_SPACE_ID!;
-      const accessToken = process.env.SEGMENT_ACCESS_TOKEN!;
-      const res = await fetch(
-        `https://profiles.segment.com/v1/spaces/${spaceId}/collections/users/profiles/email:${encodeURIComponent(email)}/traits`,
-        {
-          headers: {
-            Authorization: `Basic ${Buffer.from(accessToken + ":").toString("base64")}`,
-          },
-        },
-      );
-      if (!res.ok) return reply.code(res.status).send({ error: await res.text() });
-      const data = await res.json() as { traits?: unknown };
-      return { traits: data.traits ?? {} };
-    } catch (err) {
-      return reply.code(500).send({ error: String(err) });
-    }
-  });
-
   // ── POST /api/getVIToken ───────────────────────────────────────────────────
   app.post("/api/getVIToken", async (req, reply) => {
     const { transcriptSid } = req.body as { transcriptSid?: string } ?? {};
@@ -185,23 +196,32 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
     }
   });
 
-  // ── POST /api/transcriptions (Twilio CI webhook) ───────────────────────────
-  app.post("/api/transcriptions", async (req) => {
+  // ── POST /api/callStatus (Twilio call status callback) ───────────────────
+  app.post("/api/callStatus", async (req) => {
     const body = req.body as Record<string, string> ?? {};
-    const event = body.TranscriptionEvent ?? body.transcriptionEvent;
-    const callSid = body.CallSid ?? body.callSid;
+    const callSid = body.CallSid;
+    const callStatus = body.CallStatus;
 
-    if (event === "transcription-started") {
-      broadcast(conversationClients, { type: "startCall", callSid });
-    } else if (event === "transcription-content") {
-      broadcast(conversationClients, {
-        type: "userTranscript",
-        text: body.TranscriptionData ?? body.transcriptionData ?? "",
-        callSid,
-        isFinal: body.Final === "true",
-      });
-    } else if (event === "transcription-stopped") {
-      broadcast(conversationClients, { type: "endCall", callSid });
+    if (!callSid || !callStatus) return { ok: true };
+
+    const statusMap: Record<string, CallTrackerItem["status"]> = {
+      initiated:   "calling",
+      ringing:     "calling",
+      "in-progress": "in-progress",
+      answered:    "in-progress",
+      completed:   "completed",
+      failed:      "completed",
+      busy:        "completed",
+      "no-answer": "completed",
+    };
+
+    const syncStatus = statusMap[callStatus];
+    if (syncStatus) {
+      await updateCallTracker(callSid, { status: syncStatus });
+    }
+
+    if (callStatus === "completed") {
+      setTimeout(() => sessionEmail.delete(callSid), 60_000);
     }
 
     return { ok: true };
@@ -210,32 +230,30 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
   // ── POST /api/webhook/languageOperator ────────────────────────────────────
   app.post("/api/webhook/languageOperator", async (req) => {
     const body = req.body as Record<string, string> ?? {};
-    const sid = body.TranscriptSid ?? body.transcriptSid ?? "";
-    broadcast(conversationClients, { type: "voiceIntelligenceSid", sid });
+    const viSid = body.TranscriptSid ?? body.transcriptSid ?? "";
+    const callSid = body.CallSid ?? body.callSid ?? "";
+    if (viSid && callSid) await updateCallTracker(callSid, { viSid });
     return { ok: true };
   });
 
   // ── POST /api/beans/coffeeQuestions (AI tool callback) ────────────────────
   app.post("/api/beans/coffeeQuestions", async (req) => {
     const headers = req.headers as Record<string, string>;
-    const code = headers["x-session-id"] ?? "";
-    const body = req.body as Record<string, string> ?? {};
+    const callSid = headers["x-call-sid"] ?? "";
 
-    const syncServiceSid = process.env.TWILIO_SYNC_SERVICE_SID!;
     try {
-      const client = getTwilio();
-      await client.sync.v1.services(syncServiceSid).syncMaps(code).syncMapItems("tasks").update({
-        data: { coffee_question_asked: true, question: body.question ?? "" },
+      const item = await getSyncItem(callSid).fetch();
+      const current = item.data as CallTrackerItem;
+      await getSyncItem(callSid).update({
+        ttl: SYNC_ITEM_TTL,
+        data: {
+          ...current,
+          tasks: { ...current.tasks, coffee_question_asked: true },
+        },
       });
     } catch (err) {
       console.error("[coffeeQuestions] Sync error:", err);
     }
-
-    broadcast(conversationClients, {
-      type: "toolCard",
-      tool: "coffeeQuestion",
-      question: body.question ?? "",
-    }, code || undefined);
 
     return { ok: true };
   });
@@ -243,7 +261,7 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
   // ── POST /api/beans/order (AI tool callback) ──────────────────────────────
   app.post("/api/beans/order", async (req) => {
     const headers = req.headers as Record<string, string>;
-    const code = headers["x-session-id"] ?? "";
+    const callSid = headers["x-call-sid"] ?? "";
     const body = req.body as Record<string, unknown> ?? {};
 
     const mixologistBase = process.env.MIXOLOGIST_BASE_URL ?? "https://mixologist.example.com";
@@ -263,87 +281,21 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
       console.error("[order] Mixologist error:", err);
     }
 
-    const syncServiceSid = process.env.TWILIO_SYNC_SERVICE_SID!;
     try {
-      const client = getTwilio();
-      await client.sync.v1.services(syncServiceSid).syncMaps(code).syncMapItems("tasks").update({
-        data: { coffee_order_placed: true, orderNumber },
+      const item = await getSyncItem(callSid).fetch();
+      const current = item.data as CallTrackerItem;
+      await getSyncItem(callSid).update({
+        ttl: SYNC_ITEM_TTL,
+        data: {
+          ...current,
+          tasks: { ...current.tasks, coffee_order_placed: true },
+        },
       });
     } catch (err) {
       console.error("[order] Sync error:", err);
     }
 
-    broadcast(conversationClients, {
-      type: "toolCard",
-      tool: "order",
-      item: body.item,
-      modifiers: body.modifiers,
-      orderNumber,
-    }, code || undefined);
-
     return { orderNumber };
   });
 
-  // ─── WebSocket: /api/ws/callConversation ─────────────────────────────────
-  const wssCall = new WebSocketServer({ noServer: true });
-  wssCall.on("connection", (ws: WebSocket) => {
-    const client: ConversationClient = { ws };
-    conversationClients.add(client);
-
-    let heartbeat: ReturnType<typeof setInterval> | null = null;
-
-    ws.on("message", (raw) => {
-      try {
-        const msg = JSON.parse(raw.toString()) as { type: string; code?: string };
-        if (msg.type === "pollHistory") {
-          client.code = msg.code;
-          // Send any cached history (placeholder — real impl would read from Sync)
-          ws.send(JSON.stringify({ type: "history", messages: [] }));
-          // Start keep-alive ping
-          heartbeat = setInterval(() => {
-            if (ws.readyState === WebSocket.OPEN) ws.ping();
-          }, 5000);
-        } else if (msg.type === "endCall") {
-          client.code = undefined;
-        }
-      } catch {}
-    });
-
-    ws.on("close", () => {
-      conversationClients.delete(client);
-      if (heartbeat) clearInterval(heartbeat);
-    });
-  });
-
-  // ─── WebSocket: /api/ws/ready ─────────────────────────────────────────────
-  const wssReady = new WebSocketServer({ noServer: true });
-  wssReady.on("connection", (ws: WebSocket) => {
-    const client: ReadyClient = { ws };
-    readyClients.add(client);
-
-    ws.on("message", (raw) => {
-      try {
-        const msg = JSON.parse(raw.toString()) as { type: string; [k: string]: unknown };
-        if (msg.type === "chooseScenario") {
-          // Relay to all ready clients (demo kiosk mode)
-          const out = JSON.stringify({ type: "navigate", path: "/scenario", data: msg });
-          for (const c of readyClients) {
-            if (c.ws !== ws && c.ws.readyState === WebSocket.OPEN) c.ws.send(out);
-          }
-        }
-      } catch {}
-    });
-
-    ws.on("close", () => readyClients.delete(client));
-  });
-
-  // Attach WS upgrade handler to Fastify's underlying HTTP server
-  app.server.on("upgrade", (req: IncomingMessage, socket, head) => {
-    const url = req.url ?? "";
-    if (url.startsWith("/api/ws/callConversation")) {
-      wssCall.handleUpgrade(req, socket, head, (ws) => wssCall.emit("connection", ws, req));
-    } else if (url.startsWith("/api/ws/ready")) {
-      wssReady.handleUpgrade(req, socket, head, (ws) => wssReady.emit("connection", ws, req));
-    }
-  });
 }

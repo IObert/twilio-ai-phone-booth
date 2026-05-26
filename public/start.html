@@ -236,21 +236,6 @@
   const btn = document.getElementById('startBtn');
   const statusMsg = document.getElementById('statusMsg');
 
-  // Keep-alive WS to receive remote navigation pushes
-  (function connectReady() {
-    const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/ws/ready`);
-    ws.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data);
-        if (msg.type === 'navigate' && msg.path) {
-          const url = msg.path + (msg.data?.code ? `?code=${msg.data.code}` : '');
-          location.href = url;
-        }
-      } catch {}
-    };
-    ws.onclose = () => setTimeout(connectReady, 3000);
-  })();
-
   btn.addEventListener('click', async () => {
     btn.disabled = true;
     statusMsg.textContent = 'Starting call…';
@@ -263,13 +248,34 @@
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? 'Unknown error');
-      statusMsg.textContent = 'Call placed! Connecting…';
-      location.href = `/call.html?code=${data.code}`;
+
+      const callSid = data.callSid;
+      statusMsg.textContent = 'Ringing… waiting for call to connect.';
+
+      // Subscribe to the callTracker Sync map item for this callSid
+      const tokenRes = await fetch('/api/getSyncToken', { method: 'POST' });
+      const { token } = await tokenRes.json();
+      const syncClient = new Twilio.Sync.Client(token);
+      const map = await syncClient.map('callTracker');
+
+      // Handle the case where status already advanced before we subscribed
+      const existing = await map.get(callSid).catch(() => null);
+      if (existing?.value?.status === 'in-progress') {
+        location.href = `/call?callSid=${callSid}`;
+        return;
+      }
+
+      map.on('itemUpdated', ({ item }) => {
+        if (item.key === callSid && item.data.status === 'in-progress') {
+          location.href = `/call?callSid=${callSid}`;
+        }
+      });
     } catch (err) {
       statusMsg.textContent = `Error: ${err.message}`;
       btn.disabled = false;
     }
   });
 </script>
+<script src="https://media.twiliocdn.com/sdk/js/sync/releases/3.0.1/twilio-sync.min.js"></script>
 </body>
 </html>
