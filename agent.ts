@@ -262,7 +262,6 @@ async function handleOpenAIEvent(
 
   } else if (event.type === "response.output_text.done") {
     state.input.push({ role: "assistant", content: event.text as string });
-    console.log(`[${convId}] full response: ${event.text}`);
     const callSid = state.getCallSid();
     if (callSid) {
       appendSyncHistory(callSid, "ai", event.text as string)
@@ -297,8 +296,6 @@ async function handleOpenAIEvent(
       try { result = await executeTool(fc.name, JSON.parse(fc.args || "{}"), state.getCallSid()); }
       catch (err) { result = JSON.stringify({ error: err instanceof Error ? err.message : String(err) }); }
     }
-
-    console.log(`[${convId}] tool ${fc.name} → ${result.slice(0, 80)}`);
 
     // The Responses API is stateless: the follow-up must include the full history
     // *including* the function_call item itself, otherwise OpenAI can't match the call_id.
