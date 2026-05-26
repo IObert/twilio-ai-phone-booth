@@ -289,7 +289,6 @@ async function initSync() {
 
   // Results not yet available — wait for the update
   map.on('itemUpdated', ({ item }) => {
-    debugger
     if (item.key !== CALL_SID) return;
     if (item.data?.cintel) render(item.data.cintel);
   });
