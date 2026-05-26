@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(git -C /Users/mobert/Desktop/tac-voice log --oneline)",
-      "Bash(grep -E \"\\\\.\\(yml|yaml|json|config|toml|dockerfile|vercel\\)$|vercel|docker\")"
+      "Bash(grep -E \"\\\\.\\(yml|yaml|json|config|toml|dockerfile|vercel\\)$|vercel|docker\")",
+      "Bash(cat)",
+      "Read(//tmp/**)",
+      "Bash(curl -sI \"https://mobert.ngrok.io/start\")",
+      "Bash(curl -s \"https://mobert.ngrok.io/start\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

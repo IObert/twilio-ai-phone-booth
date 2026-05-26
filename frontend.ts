@@ -311,19 +311,19 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
     //   console.error("[order] Mixologist error:", err);
     // }
 
-    // try {
-    //   const item = await getSyncItem(callSid).fetch();
-    //   const current = item.data as CallTrackerItem;
-    //   await getSyncItem(callSid).update({
-    //     ttl: SYNC_ITEM_TTL,
-    //     data: {
-    //       ...current,
-    //       tasks: { ...current.tasks, coffee_order_placed: true },
-    //     },
-    //   });
-    // } catch (err) {
-    //   console.error("[order] Sync error:", err);
-    // }
+    try {
+      const item = await getSyncItem(callSid).fetch();
+      const current = item.data as CallTrackerItem;
+      await getSyncItem(callSid).update({
+        ttl: SYNC_ITEM_TTL,
+        data: {
+          ...current,
+          tasks: { ...current.tasks, coffee_order_placed: true },
+        },
+      });
+    } catch (err) {
+      console.error("[order] Sync error:", err);
+    }
 
     return { orderNumber: 1860 };
   });
