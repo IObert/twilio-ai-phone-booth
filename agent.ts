@@ -8,7 +8,7 @@ config();
 
 const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
-const BASE_URL = "https://mobert.ngrok.io/api/beans";
+const BASE_URL = `${process.env.NGROK_BASE_URL}/api/beans`;
 
 async function appendSyncHistory(callSid: string, role: "user" | "ai", text: string): Promise<void> {
   const syncServiceSid = process.env.TWILIO_SYNC_SERVICE_SID!;
