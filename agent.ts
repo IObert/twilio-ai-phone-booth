@@ -24,53 +24,26 @@ async function appendSyncHistory(callSid: string, role: "user" | "ai", text: str
 
 export const WELCOME_GREETING = "Welcome to our barista expert service! How can I help you with your coffee today?";
 
-const SYSTEM_INSTRUCTIONS = `You are Jeff, a friendly and knowledgeable AI assistant working at Owl Beans during Twilio SIGNAL World Tour Berlin 2026.
+const SYSTEM_INSTRUCTIONS = `You are Jeff, a friendly AI barista at Owl Beans during Twilio SIGNAL World Tour Berlin 2026. You are talking to customers over the phone.
 
-Your goal is to have natural coffee conversations with customers and help them complete one of two tasks only:
-1) Ask a coffee-related question
-2) Place a coffee order
+CRITICAL — PHONE CALL RULES:
+- Never use markdown, bullet points, headers, or lists. Plain spoken sentences only.
+- Keep every response short — 1 to 2 sentences maximum. This is a phone call, not a chat.
+- No filler phrases like "Great choice!" or "Absolutely!". Get to the point.
 
-## Your Responsibilities
+You help customers with exactly two things: answering a coffee question, or placing a coffee order.
 
-### 1. Answer Coffee Questions
-When customers ask about coffee types, brewing methods, flavors, strength, caffeine, or drink differences, provide clear and helpful answers.
+Menu: Espresso, Cortado, Latte, Cappuccino, Americano, British Breakfast Tea, Chai Latte, Flat White. Milk or oat milk available.
 
-After answering a coffee-related question, call the complete_coffee_question tool to mark the task complete.
+Once a customer confirms their order, call submit_order immediately and read back the order number. If it fails, tell them briefly and apologize.
 
-### 2. Create Coffee Orders
-If the customer wants to order, help them choose from this menu:
-- Espresso
-- Cortado
-- Latte
-- Cappuccino
-- Americano
-- British Breakfast Tea
-- Chai Latte
-- Flat White
+After answering a coffee question, call complete_coffee_question.
 
-Once they confirm what they want, call submit_order immediately. Users always order their favorite drink, so update the trait on each new order.
+For anything about Twilio products, pricing, or the event, tell them to ask at the booth.
 
-## Conversation Goal
-Keep the chat friendly and natural. Encourage the customer to mention personal details casually (name, preferences, context, etc.) so personalization data can be used in future calls.
+At the end of the call, mention they can pick up a free Twilio gift at the welcome desk.
 
-## Important Boundaries
-If users ask about detailed Twilio product/pricing/event topics, politely redirect them to human booth staff.
-Keep your active help focused on coffee questions and coffee ordering.
-
-## Finale Tip
-When the conversation is ending, remind them they can claim a free Twilio gift at the welcome desk.
-
-## Tone & Personality
-- Friendly, enthusiastic, and helpful
-- Coffee-savvy but approachable
-- Efficient when users are in a hurry
-- Professional and concise
-
-## Tool Usage Rules
-- Always call complete_coffee_question after answering a coffee-related question.
-- Always call submit_order after the user confirms an order.
-- It is critical to communicate the returned order number to the user.
-- If the order submission fails, apologize and let the user know it failed.`;
+Keep personal details the customer shares in mind — name, preferences — for a more personal experience next time.`;
 
 const tools = [
   {
@@ -176,11 +149,11 @@ interface ConversationState {
   ws: WebSocket;
   wsReady: boolean;
   wsQueue: string[];            // raw frames held until socket opens
-  input: Array<{ role: string; content: string }>;
+  input: Array<Record<string, unknown>>;
   busy: boolean;                // true while a response.create is in flight
   requestQueue: PendingRequest[]; // serialized user requests
   stream: StreamController | null;
-  functionCalls: Map<string, { name: string; args: string; callId: string }>;
+  functionCalls: Map<string, { name: string; args: string; callId: string; itemId: string }>;
   getCallSid: () => string | undefined;
 }
 
@@ -299,7 +272,7 @@ async function handleOpenAIEvent(
   } else if (event.type === "response.output_item.added") {
     const item = event.item as { type: string; id: string; name?: string; call_id?: string } | undefined;
     if (item?.type === "function_call" && item.id) {
-      state.functionCalls.set(item.id, { name: item.name ?? "", args: "", callId: item.call_id ?? "" });
+      state.functionCalls.set(item.id, { name: item.name ?? "", args: "", callId: item.call_id ?? "", itemId: item.id });
     }
 
   } else if (event.type === "response.function_call_arguments.delta") {
@@ -327,12 +300,16 @@ async function handleOpenAIEvent(
 
     console.log(`[${convId}] tool ${fc.name} → ${result.slice(0, 80)}`);
 
-    // tool result continues the current in-flight response — send directly, don't re-queue
+    // The Responses API is stateless: the follow-up must include the full history
+    // *including* the function_call item itself, otherwise OpenAI can't match the call_id.
+    state.input.push({ type: "function_call", id: fc.itemId, call_id: fc.callId, name: fc.name, arguments: fc.args || "{}" });
+    state.input.push({ type: "function_call_output", call_id: fc.callId, output: result });
+
     wsSend(state, {
       type: "response.create",
       model: "gpt-5.4-nano",
       reasoning: { effort: "none" },
-      input: [{ type: "function_call_output", call_id: fc.callId, output: result }],
+      input: [...state.input],
       tools,
     });
 

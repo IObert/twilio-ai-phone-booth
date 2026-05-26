@@ -264,38 +264,38 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
     const callSid = headers["x-call-sid"] ?? "";
     const body = req.body as Record<string, unknown> ?? {};
 
-    const mixologistBase = process.env.MIXOLOGIST_BASE_URL ?? "https://mixologist.example.com";
-    let orderNumber = "N/A";
+    // const mixologistBase = process.env.MIXOLOGIST_BASE_URL ?? "https://mixologist.example.com";
+    // let orderNumber = "N/A";
 
-    try {
-      const res = await fetch(`${mixologistBase}/api/order`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) {
-        const data = await res.json() as { orderNumber?: string };
-        orderNumber = data.orderNumber ?? orderNumber;
-      }
-    } catch (err) {
-      console.error("[order] Mixologist error:", err);
-    }
+    // try {
+    //   const res = await fetch(`${mixologistBase}/api/order`, {
+    //     method: "POST",
+    //     headers: { "Content-Type": "application/json" },
+    //     body: JSON.stringify(body),
+    //   });
+    //   if (res.ok) {
+    //     const data = await res.json() as { orderNumber?: string };
+    //     orderNumber = data.orderNumber ?? orderNumber;
+    //   }
+    // } catch (err) {
+    //   console.error("[order] Mixologist error:", err);
+    // }
 
-    try {
-      const item = await getSyncItem(callSid).fetch();
-      const current = item.data as CallTrackerItem;
-      await getSyncItem(callSid).update({
-        ttl: SYNC_ITEM_TTL,
-        data: {
-          ...current,
-          tasks: { ...current.tasks, coffee_order_placed: true },
-        },
-      });
-    } catch (err) {
-      console.error("[order] Sync error:", err);
-    }
+    // try {
+    //   const item = await getSyncItem(callSid).fetch();
+    //   const current = item.data as CallTrackerItem;
+    //   await getSyncItem(callSid).update({
+    //     ttl: SYNC_ITEM_TTL,
+    //     data: {
+    //       ...current,
+    //       tasks: { ...current.tasks, coffee_order_placed: true },
+    //     },
+    //   });
+    // } catch (err) {
+    //   console.error("[order] Sync error:", err);
+    // }
 
-    return { orderNumber };
+    return { orderNumber: 1860 };
   });
 
 }
