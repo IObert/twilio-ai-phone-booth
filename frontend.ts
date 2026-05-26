@@ -3,7 +3,7 @@
  * Imported by server.ts and registered on the shared Fastify instance.
  */
 
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import twilio from "twilio";
 import { WELCOME_GREETING } from "./agent.ts";
 
@@ -26,6 +26,7 @@ interface CallTrackerItem {
   status: "calling" | "in-progress" | "completed";
   tasks: { coffee_order_placed: boolean; coffee_question_asked: boolean };
   history: { role: "user" | "ai"; text: string }[];
+  duration?: number;   // seconds, populated when status → completed
   viSid?: string;
   cintel?: CintelSummary;
 }
@@ -33,7 +34,7 @@ interface CallTrackerItem {
 // ─── constants ────────────────────────────────────────────────────────────────
 
 const SYNC_MAP_NAME = "callTracker";
-const SYNC_ITEM_TTL = 14400; // 4 hours in seconds
+const SYNC_ITEM_TTL = 604800; // 7 days in seconds
 
 // ─── in-process state ─────────────────────────────────────────────────────────
 
@@ -63,6 +64,24 @@ async function updateCallTracker(callSid: string, patch: Partial<CallTrackerItem
   } catch (err) {
     console.error(`[sync] updateCallTracker error (${callSid}):`, err);
   }
+}
+
+// ─── basic auth ───────────────────────────────────────────────────────────────
+
+function requireBasicAuth(req: FastifyRequest, reply: FastifyReply): boolean {
+  const header = req.headers.authorization ?? "";
+  if (header.startsWith("Basic ")) {
+    const decoded = Buffer.from(header.slice(6), "base64").toString("utf8");
+    const [user, pass] = decoded.split(":");
+    const expectedUser = process.env.STATS_USER!;
+    const expectedPass = process.env.STATS_PASS!;
+    if (user === expectedUser && pass === expectedPass) return true;
+  }
+  reply
+    .code(401)
+    .header("WWW-Authenticate", 'Basic realm="Owl Beans Stats"')
+    .send("Unauthorized");
+  return false;
 }
 
 // ─── plugin ───────────────────────────────────────────────────────────────────
@@ -217,7 +236,13 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
 
     const syncStatus = statusMap[callStatus];
     if (syncStatus) {
-      await updateCallTracker(callSid, { status: syncStatus });
+      const patch: Partial<CallTrackerItem> = { status: syncStatus };
+      if (callStatus === "completed") {
+        const raw = body.CallDuration ?? body.Duration ?? "";
+        const secs = parseInt(raw, 10);
+        if (!isNaN(secs)) patch.duration = secs;
+      }
+      await updateCallTracker(callSid, patch);
     }
 
     if (callStatus === "completed") {
@@ -256,6 +281,48 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
     }
 
     return { ok: true };
+  });
+
+  // ── GET /stats (basic-auth protected dashboard) ───────────────────────────
+  app.get("/stats", (req, reply) => {
+    if (!requireBasicAuth(req, reply)) return;
+    reply.sendFile("stats.html");
+  });
+
+  // ── GET /api/stats (aggregated data from sync map) ────────────────────────
+  app.get("/api/stats", async (req, reply) => {
+    if (!requireBasicAuth(req, reply)) return;
+
+    const client = getTwilio();
+    const syncServiceSid = process.env.TWILIO_SYNC_SERVICE_SID!;
+
+    const rawItems = await client.sync.v1.services(syncServiceSid)
+      .syncMaps(SYNC_MAP_NAME).syncMapItems.list({ limit: 1000 });
+    const items: CallTrackerItem[] = rawItems.map(i => i.data as CallTrackerItem);
+
+    const total = items.length;
+    const completed = items.filter(i => i.status === "completed");
+
+    const orderRate    = total ? items.filter(i => i.tasks?.coffee_order_placed).length    / total : 0;
+    const questionRate = total ? items.filter(i => i.tasks?.coffee_question_asked).length  / total : 0;
+    const bothRate     = total ? items.filter(i => i.tasks?.coffee_order_placed && i.tasks?.coffee_question_asked).length / total : 0;
+
+    const msgCounts = items.map(i => (i.history ?? []).length);
+    const avgMessages = total ? msgCounts.reduce((a, b) => a + b, 0) / total : 0;
+
+    const withDuration = completed.filter(i => typeof i.duration === "number");
+    const avgDuration  = withDuration.length
+      ? withDuration.reduce((a, i) => a + i.duration!, 0) / withDuration.length
+      : 0;
+
+    const sentiment = { positive: 0, neutral: 0, negative: 0, unknown: 0 };
+    for (const i of items) {
+      const s = i.cintel?.sentiment;
+      if (s === "positive" || s === "neutral" || s === "negative") sentiment[s]++;
+      else sentiment.unknown++;
+    }
+
+    return { total, orderRate, questionRate, bothRate, avgMessages, avgDuration, sentiment };
   });
 
   // ── POST /api/beans/order (AI tool callback) ──────────────────────────────
