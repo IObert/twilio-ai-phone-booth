@@ -36,11 +36,6 @@ interface CallTrackerItem {
 const SYNC_MAP_NAME = "callTracker";
 const SYNC_ITEM_TTL = 604800; // 7 days in seconds
 
-// ─── in-process state ─────────────────────────────────────────────────────────
-
-// callSid → participant email
-const sessionEmail = new Map<string, string>();
-
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 function getTwilio() {
@@ -144,8 +139,6 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
       return reply.code(500).send({ success: false, error: String(err) });
     }
 
-    sessionEmail.set(callSid, participantEmail);
-
     // 2. Ensure callTracker map exists, then seed the item for this call
     try {
       await client.sync.v1.services(syncServiceSid).syncMaps(SYNC_MAP_NAME)
@@ -243,10 +236,6 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
         if (!isNaN(secs)) patch.duration = secs;
       }
       await updateCallTracker(callSid, patch);
-    }
-
-    if (callStatus === "completed") {
-      setTimeout(() => sessionEmail.delete(callSid), 60_000);
     }
 
     return { ok: true };
