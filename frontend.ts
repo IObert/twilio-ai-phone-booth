@@ -195,19 +195,6 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
     return { token: token.toJwt() };
   });
 
-  // ── POST /api/getVIToken ───────────────────────────────────────────────────
-  app.post("/api/getVIToken", async (req, reply) => {
-    const { transcriptSid } = req.body as { transcriptSid?: string } ?? {};
-    if (!transcriptSid) return reply.code(400).send({ error: "transcriptSid required" });
-
-    try {
-      // Placeholder: real impl would call Twilio AI tokens API for a one-time embed token
-      return { transcriptSid, url: `https://intelligence.twilio.com/transcripts/${transcriptSid}` };
-    } catch (err) {
-      return reply.code(500).send({ error: String(err) });
-    }
-  });
-
   // ── POST /api/callStatus (Twilio call status callback) ───────────────────
   app.post("/api/callStatus", async (req) => {
     const body = req.body as Record<string, string> ?? {};
