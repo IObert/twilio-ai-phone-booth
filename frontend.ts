@@ -120,7 +120,7 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
     const syncServiceSid = process.env.TWILIO_SYNC_SERVICE_SID!;
     const sipAddress = process.env.SIP_PHONE_ADDRESS!;
     const from = process.env.TWILIO_PHONE_NUMBER!;
-    const ngrokBase = process.env.NGROK_BASE_URL ?? "https://mobert.ngrok.io";
+    const ngrokBase = process.env.NGROK_BASE_URL!;
 
     // 1. Place outbound call — callSid is the session identifier
     let callSid: string;
@@ -293,27 +293,52 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
     const headers = req.headers as Record<string, string>;
     const callSid = headers["x-call-sid"] ?? "";
     const body = req.body as Record<string, unknown> ?? {};
+    const { item, modifiers = [] } = body as { item?: string; modifiers?: string[] };
 
-    // const mixologistBase = process.env.MIXOLOGIST_BASE_URL ?? "https://mixologist.example.com";
-    // let orderNumber = "N/A";
+    if (!item) {
+      return { error: "item is required" };
+    }
 
-    // try {
-    //   const res = await fetch(`${mixologistBase}/api/order`, {
-    //     method: "POST",
-    //     headers: { "Content-Type": "application/json" },
-    //     body: JSON.stringify(body),
-    //   });
-    //   if (res.ok) {
-    //     const data = await res.json() as { orderNumber?: string };
-    //     orderNumber = data.orderNumber ?? orderNumber;
-    //   }
-    // } catch (err) {
-    //   console.error("[order] Mixologist error:", err);
-    // }
+    const mixologistBase = process.env.MIXOLOGIST_BASE_URL!;
+    const mixologistAuth = process.env.MIXOLOGIST_AUTH!;
+
+    const externalPayload = {
+      event: "signal-berlin",
+      order: {
+        status: "queued",
+        key: new Date().toISOString(),
+        manual: true,
+        address: "Manual Order",
+        name: "AI Phone Booth",
+        item,
+        originalText: "",
+        modifiers,
+      },
+    };
+
+    let orderNumber: string | number = "N/A";
+    try {
+      const res = await fetch(`${mixologistBase}/api/order`, {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${btoa(mixologistAuth + ":")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(externalPayload),
+      });
+      const data = await res.json().catch(() => null) as { key?: string | number } | null;
+      if (res.ok) {
+        orderNumber = data?.key ?? orderNumber;
+      } else {
+        console.error("[order] Mixologist error:", res.status, data);
+      }
+    } catch (err) {
+      console.error("[order] Mixologist fetch error:", err);
+    }
 
     try {
-      const item = await getSyncItem(callSid).fetch();
-      const current = item.data as CallTrackerItem;
+      const syncItem = await getSyncItem(callSid).fetch();
+      const current = syncItem.data as CallTrackerItem;
       await getSyncItem(callSid).update({
         ttl: SYNC_ITEM_TTL,
         data: {
@@ -325,7 +350,7 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
       console.error("[order] Sync error:", err);
     }
 
-    return { orderNumber: 1860 };
+    return { orderNumber };
   });
 
 }
