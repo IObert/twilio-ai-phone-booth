@@ -194,6 +194,59 @@
     0%,100% { box-shadow: 0 0 0 0 rgba(124,92,252,0.4); }
     50% { box-shadow: 0 0 0 20px rgba(124,92,252,0); }
   }
+
+  /* ── Attract popup ── */
+  #attractOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(10px);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  #attractOverlay.visible { display: flex; }
+  .attract-modal {
+    background: var(--panel);
+    border: 2px solid rgba(124,92,252,0.5);
+    border-radius: 28px;
+    padding: 56px 64px;
+    text-align: center;
+    max-width: 480px;
+    width: 90%;
+    box-shadow: 0 0 80px rgba(124,92,252,0.3);
+    animation: attractBounce 1.8s cubic-bezier(0.36,0.07,0.19,0.97) infinite;
+  }
+  .attract-phone { font-size: 72px; margin-bottom: 20px; }
+  .attract-title {
+    font-size: 32px;
+    font-weight: 800;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, var(--text) 60%, var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .attract-sub { font-size: 17px; color: var(--muted); line-height: 1.5; margin-bottom: 32px; }
+  .attract-dismiss {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: var(--muted);
+    font-size: 13px;
+    padding: 8px 20px;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .attract-dismiss:hover { border-color: rgba(255,255,255,0.35); color: var(--text); }
+
+  @keyframes attractBounce {
+    0%,100% { transform: translateY(0);    }
+    15%      { transform: translateY(-18px); }
+    30%      { transform: translateY(0);    }
+    45%      { transform: translateY(-10px); }
+    60%      { transform: translateY(0);    }
+  }
 </style>
 </head>
 <body>
@@ -247,6 +300,16 @@
   </div>
 </div>
 
+<!-- Attract-mode popup -->
+<div id="attractOverlay">
+  <div class="attract-modal">
+    <div class="attract-phone">📞</div>
+    <div class="attract-title">Pick up to talk<br/>to our AI</div>
+    <div class="attract-sub">Chat with Jeff, our AI barista — ask a coffee question or guess the SIGNAL World Tour cities.</div>
+    <button class="attract-dismiss" id="attractDismiss">Dismiss</button>
+  </div>
+</div>
+
 <script>
   const btn = document.getElementById('startBtn');
   const statusMsg = document.getElementById('statusMsg');
@@ -290,6 +353,81 @@
       btn.disabled = false;
     }
   });
+
+  // ── Attract mode ────────────────────────────────────────────────────────────
+  const ATTRACT_MODE = %%ATTRACT_MODE%%;
+  const ATTRACT_DEV  = %%ATTRACT_DEV%%;
+
+  if (ATTRACT_MODE || ATTRACT_DEV) {
+    const overlay       = document.getElementById('attractOverlay');
+    const dismissBtn    = document.getElementById('attractDismiss');
+    let attractFired    = false;   // dev mode: only once
+    let attractTimer    = null;
+    let syncClient      = null;
+
+    async function showAttractPopup() {
+      if (ATTRACT_DEV && attractFired) return;
+      attractFired = true;
+      overlay.classList.add('visible');
+
+      // Kick off the call immediately so the phone rings as the popup shows
+      try {
+        const res = await fetch('/api/attractCall', { method: 'POST' });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error ?? 'Unknown error');
+
+        const callSid = data.callSid;
+
+        // Navigate to /call as soon as the callee answers
+        if (!syncClient) {
+          const tokenRes = await fetch('/api/getSyncToken', { method: 'POST' });
+          const { token } = await tokenRes.json();
+          syncClient = new Twilio.Sync.Client(token);
+        }
+        const map = await syncClient.map('callTracker');
+        map.on('itemUpdated', ({ item }) => {
+          if (item.key === callSid && item.data.status === 'in-progress') {
+            overlay.classList.remove('visible');
+            location.href = `/call?callSid=${callSid}`;
+          }
+        });
+      } catch (err) {
+        console.error('[attract] attractCall failed:', err);
+        overlay.classList.remove('visible');
+      }
+    }
+
+    function scheduleNext() {
+      if (ATTRACT_DEV) return; // dev: no repeat
+      // Random delay between 5 and 10 minutes (in ms)
+      const delay = (5 + Math.random() * 5) * 60 * 1000;
+      attractTimer = setTimeout(() => {
+        showAttractPopup();
+        scheduleNext();
+      }, delay);
+    }
+
+    function resetAttractTimer() {
+      clearTimeout(attractTimer);
+      scheduleNext();
+    }
+
+    dismissBtn.addEventListener('click', () => {
+      overlay.classList.remove('visible');
+      resetAttractTimer();
+    });
+
+    // Dismiss and reset timer on any user interaction with the main UI
+    ['mousemove', 'mousedown', 'keydown', 'touchstart'].forEach(evt =>
+      document.addEventListener(evt, resetAttractTimer, { passive: true })
+    );
+
+    if (ATTRACT_DEV) {
+      setTimeout(showAttractPopup, 20_000);
+    } else {
+      scheduleNext();
+    }
+  }
 </script>
 <script src="https://media.twiliocdn.com/sdk/js/sync/releases/3.0.1/twilio-sync.min.js"></script>
 </body>

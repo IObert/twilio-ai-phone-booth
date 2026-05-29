@@ -3,9 +3,19 @@
  * Imported by server.ts and registered on the shared Fastify instance.
  */
 
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { join, dirname } from "path";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import twilio from "twilio";
 import { WELCOME_GREETING } from "./agent.ts";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+function serveTemplated(file: string, vars: Record<string, string>): string {
+  let html = readFileSync(join(__dirname, "public", file), "utf8");
+  for (const [k, v] of Object.entries(vars)) html = html.replaceAll(`%%${k}%%`, v);
+  return html;
+}
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -85,7 +95,13 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
 
   // ── Clean HTML routes ─────────────────────────────────────────────────────
   app.get("/", (_, reply) => reply.redirect("/start"));
-  app.get("/start", (_, reply) => reply.sendFile("start.html"));
+  app.get("/start", (_, reply) => {
+    const html = serveTemplated("start.html", {
+      ATTRACT_MODE: process.env.ATTRACT_MODE === "true" ? "true" : "false",
+      ATTRACT_DEV:  process.env.ATTRACT_DEV  === "true" ? "true" : "false",
+    });
+    reply.type("text/html").send(html);
+  });
   app.get("/call", (_, reply) => reply.sendFile("call.html"));
   app.get("/summary", (_, reply) => reply.sendFile("summary.html"));
 
@@ -235,6 +251,52 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
     const callSid = body.CallSid ?? body.callSid ?? "";
     if (viSid && callSid) await updateCallTracker(callSid, { viSid });
     return { ok: true };
+  });
+
+  // ── POST /api/attractCall (attract-mode: initiate call without user details) ─
+  app.post("/api/attractCall", async (_req, reply) => {
+    const client = getTwilio();
+    const sipAddress = process.env.SIP_PHONE_ADDRESS!;
+    const from = process.env.TWILIO_PHONE_NUMBER!;
+    const ngrokBase = process.env.NGROK_BASE_URL!;
+    const syncServiceSid = process.env.TWILIO_SYNC_SERVICE_SID!;
+
+    let callSid: string;
+    try {
+      const call = await client.calls.create({
+        to: sipAddress,
+        from,
+        url: `${ngrokBase}/twiml`,
+        statusCallback: `${ngrokBase}/api/callStatus`,
+        statusCallbackMethod: "POST",
+        statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
+      });
+      callSid = call.sid;
+    } catch (err) {
+      console.error("[attractCall] Call error:", err);
+      return reply.code(500).send({ success: false, error: String(err) });
+    }
+
+    try {
+      await client.sync.v1.services(syncServiceSid).syncMaps(SYNC_MAP_NAME)
+        .fetch().catch(() =>
+          client.sync.v1.services(syncServiceSid).syncMaps.create({ uniqueName: SYNC_MAP_NAME })
+        );
+      await client.sync.v1.services(syncServiceSid)
+        .syncMaps(SYNC_MAP_NAME).syncMapItems.create({
+          key: callSid,
+          ttl: SYNC_ITEM_TTL,
+          data: {
+            status: "calling",
+            tasks: { coffee_order_placed: false, coffee_question_asked: false, world_tour_guessed: false },
+            history: [{ role: "ai", text: WELCOME_GREETING }],
+          } satisfies CallTrackerItem,
+        });
+    } catch (err) {
+      console.error("[attractCall] Sync error:", err);
+    }
+
+    return { success: true, callSid };
   });
 
   // ── POST /api/beans/coffeeQuestions (AI tool callback) ────────────────────
