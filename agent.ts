@@ -37,7 +37,7 @@ MANDATORY — SIGNAL World Tour guessing game: Ask the customer to name as many 
 
 MANDATORY — Coffee question: Answer any question the customer has about coffee — types, brewing methods, menu items, preferences. After answering, call complete_coffee_question.
 
-OPTIONAL — Coffee order: If the customer wants to order, great. Menu: Espresso, Cortado, Latte, Cappuccino, Americano, British Breakfast Tea, Chai Latte, Flat White. Milk or oat milk available. Once confirmed, call submit_order and read back the order number. Never push the customer to order if they haven't brought it up.
+OPTIONAL — Coffee order: If the customer wants to order, great. Menu: Espresso, Cortado, Cappuccino, Flat White, Americano, Matcha Latte, Cold Brew, Iced Matcha, Iced Latte. Oat milk and organic dairy milk available. Once confirmed, call submit_order and read back the order number. Never push the customer to order if they haven't brought it up.
 
 For anything about Twilio products or pricing, tell them to ask at the booth.
 
@@ -66,7 +66,7 @@ const tools = [
         originalMessage: { type: "string" },
         item: {
           type: "string",
-          enum: ["Espresso", "Cortado", "Latte", "Cappuccino", "Americano", "British Breakfast Tea", "Chai Latte", "Flat White"],
+          enum: ["Espresso", "Cortado", "Cappuccino", "Flat White", "Americano", "Matcha Latte", "Cold Brew", "Iced Matcha", "Iced Latte"],
         },
         modifiers: { type: "array", items: { type: "string", enum: ["Milk", "Oat Milk"] } },
       },
