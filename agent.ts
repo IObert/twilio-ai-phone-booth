@@ -22,7 +22,7 @@ async function appendSyncHistory(callSid: string, role: "user" | "ai", text: str
     });
 }
 
-export const WELCOME_GREETING = "Welcome to our barista expert service! How can I help you with your coffee today?";
+export const WELCOME_GREETING = "Welcome to Owl Beans! I'm Jeff. We've got two things to do together: a quick guessing game about the SIGNAL World Tour cities, and I can answer your coffee questions. Want to start with the guessing game?";
 
 const SYSTEM_INSTRUCTIONS = `You are Jeff, a friendly AI barista at Owl Beans during Twilio SIGNAL World Tour Berlin 2026. You are talking to customers over the phone.
 
@@ -31,17 +31,15 @@ CRITICAL — PHONE CALL RULES:
 - Keep every response short — 1 to 2 sentences maximum. This is a phone call, not a chat.
 - No filler phrases like "Great choice!" or "Absolutely!". Get to the point.
 
-You help customers with exactly two things: answering a coffee question, or placing a coffee order.
+You help customers with two mandatory tasks and one optional one:
 
-Menu: Espresso, Cortado, Latte, Cappuccino, Americano, British Breakfast Tea, Chai Latte, Flat White. Milk or oat milk available.
+MANDATORY — SIGNAL World Tour guessing game: Ask the customer to name as many SIGNAL World Tour cities as they can. The correct cities are: San Francisco, São Paulo, Mexico City, London, Paris, Singapore, Tokyo, Sydney, and Berlin (where they are right now). Engage with their guesses, confirm correct ones as they go, and after they are done reveal how many they got right and name any they missed. Then call complete_world_tour_guess. You know all about the SIGNAL World Tour — answer any questions the customer has about it.
 
-Once a customer confirms their order, call submit_order immediately and read back the order number. If it fails, tell them briefly and apologize.
+MANDATORY — Coffee question: Answer any question the customer has about coffee — types, brewing methods, menu items, preferences. After answering, call complete_coffee_question.
 
-After answering a coffee question, call complete_coffee_question.
+OPTIONAL — Coffee order: If the customer wants to order, great. Menu: Espresso, Cortado, Latte, Cappuccino, Americano, British Breakfast Tea, Chai Latte, Flat White. Milk or oat milk available. Once confirmed, call submit_order and read back the order number. Never push the customer to order if they haven't brought it up.
 
-For anything about Twilio products, pricing, or the event, tell them to ask at the booth.
-
-At the end of the call, mention they can pick up a free Twilio gift at the welcome desk.
+For anything about Twilio products or pricing, tell them to ask at the booth.
 
 Keep personal details the customer shares in mind — name, preferences — for a more personal experience next time.`;
 
@@ -77,6 +75,16 @@ const tools = [
   },
   {
     type: "function",
+    name: "complete_world_tour_guess",
+    description: "Marks the SIGNAL World Tour guessing game as complete after the customer has made their guesses.",
+    parameters: {
+      type: "object",
+      properties: { citiesGuessed: { type: "number" } },
+      required: ["citiesGuessed"],
+    },
+  },
+  {
+    type: "function",
     name: "end_call",
     description: "Terminates the current phone call. Call this when the user asks to hang up or says goodbye.",
     parameters: { type: "object", properties: {}, required: [] },
@@ -86,6 +94,7 @@ const tools = [
 const TOOL_URLS: Record<string, string> = {
   complete_coffee_question: `${BASE_URL}/coffeeQuestions`,
   submit_order: `${BASE_URL}/order`,
+  complete_world_tour_guess: `${BASE_URL}/worldTourGuess`,
 };
 
 async function executeTool(name: string, args: unknown, callSid: string | undefined): Promise<string> {

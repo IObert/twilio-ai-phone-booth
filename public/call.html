@@ -114,6 +114,7 @@
     transition: border-color 0.3s;
   }
   .task-item.done { border-color: rgba(62,207,142,0.4); }
+  .task-item.optional { border-style: dashed; }
   .task-check {
     width: 22px; height: 22px;
     border-radius: 50%;
@@ -136,6 +137,13 @@
   .task-item.done .task-label {
     text-decoration: line-through;
     color: var(--muted);
+  }
+  .task-optional-tag {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-top: 3px;
   }
 
   /* ── FEED ──────────────────────────────────────────────────── */
@@ -288,9 +296,16 @@
     <div class="task-check"></div>
     <div class="task-label">Ask a coffee question</div>
   </div>
-  <div class="task-item" id="task-order" data-done="false">
+  <div class="task-item" id="task-world-tour" data-done="false">
     <div class="task-check"></div>
-    <div class="task-label">Place a coffee order</div>
+    <div class="task-label">Guess the SIGNAL World Tour cities</div>
+  </div>
+  <div class="task-item optional" id="task-order" data-done="false">
+    <div class="task-check"></div>
+    <div>
+      <div class="task-label">Place a coffee order</div>
+      <div class="task-optional-tag">Optional</div>
+    </div>
   </div>
 </div>
 
@@ -366,6 +381,14 @@ function addToolCard(data) {
         <div class="tool-detail">${escHtml(String(data.question ?? ''))}</div>
       </div>`;
     markTask('task-question');
+  } else if (data.tool === 'worldTourGuess') {
+    card.innerHTML = `
+      <div class="tool-icon">🌍</div>
+      <div>
+        <div class="tool-title">World Tour Guessed</div>
+        <div class="tool-detail">${escHtml(String(data.citiesGuessed ?? 0))} cities identified</div>
+      </div>`;
+    markTask('task-world-tour');
   } else if (data.tool === 'traitInferred') {
     card.innerHTML = `
       <div class="tool-icon">🏷️</div>
@@ -453,7 +476,8 @@ function applyStatus(data) {
 
 function applyTaskState(data) {
   if (data.coffee_question_asked) markTask('task-question');
-  if (data.coffee_order_placed) markTask('task-order');
+  if (data.coffee_order_placed)   markTask('task-order');
+  if (data.world_tour_guessed)    markTask('task-world-tour');
 }
 
 function applyHistory(messages) {
