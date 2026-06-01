@@ -181,6 +181,26 @@
   }
   .msg-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
 
+  /* memory items (observations + summaries) */
+  .memory-item {
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--text);
+    background: var(--panel2);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+  .memory-skeleton {
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+  }
+  .memory-skeleton:nth-child(2) { width: 75%; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+
   /* tool cards */
   .tool-card {
     align-self: center;
@@ -280,6 +300,22 @@
   <div class="panel-title">Customer Profile</div>
   <div class="profile-name" id="profileName">Guest</div>
   <div class="badges" id="badgeList"></div>
+
+  <div style="margin-top:18px;">
+    <div class="panel-title" style="margin-bottom:8px;">Known Facts</div>
+    <div id="observationsList" style="display:flex;flex-direction:column;gap:6px;">
+      <div class="memory-skeleton"></div>
+      <div class="memory-skeleton"></div>
+    </div>
+  </div>
+
+  <div style="margin-top:18px;">
+    <div class="panel-title" style="margin-bottom:8px;">Past Visits</div>
+    <div id="summariesList" style="display:flex;flex-direction:column;gap:6px;">
+      <div class="memory-skeleton"></div>
+      <div class="memory-skeleton"></div>
+    </div>
+  </div>
 </div>
 
 <!-- CENTER: Conversation Feed -->
@@ -447,6 +483,7 @@ async function initSync() {
       applyTaskState(d.tasks ?? {});
       applyHistory(d.history ?? []);
       applyViSid(d.viSid);
+      applyMemory(d.observations, d.summaries);
     }
 
     map.on('itemUpdated', ({ item }) => {
@@ -455,6 +492,7 @@ async function initSync() {
       applyTaskState(item.data.tasks ?? {});
       applyHistory(item.data.history ?? []);
       applyViSid(item.data.viSid);
+      applyMemory(item.data.observations, item.data.summaries);
     });
   } catch (err) {
     console.error('[initSync]', err);
@@ -491,6 +529,22 @@ function applyViSid(sid) {
   viSid = sid;
   viBtn.style.display = 'inline-block';
   footerHint.textContent = '';
+}
+
+function applyMemory(observations, summaries) {
+  const obsList = document.getElementById('observationsList');
+  const sumList = document.getElementById('summariesList');
+
+  if (Array.isArray(observations)) {
+    obsList.innerHTML = observations.length
+      ? observations.map(o => `<div class="memory-item">${escHtml(o)}</div>`).join('')
+      : `<div style="font-size:12px;color:var(--muted);font-style:italic;">Nothing yet</div>`;
+  }
+  if (Array.isArray(summaries)) {
+    sumList.innerHTML = summaries.length
+      ? summaries.map(s => `<div class="memory-item">${escHtml(s)}</div>`).join('')
+      : `<div style="font-size:12px;color:var(--muted);font-style:italic;">Nothing yet</div>`;
+  }
 }
 
 // ── Voice Intelligence ─────────────────────────────────────────────────────

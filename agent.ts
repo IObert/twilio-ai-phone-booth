@@ -3,6 +3,7 @@ import WebSocket from "ws";
 import twilio from "twilio";
 import { MemoryPromptBuilder } from "twilio-agent-connect";
 import type { ConversationSession, TACMemoryResponse } from "twilio-agent-connect";
+import { updateCallTracker } from "./sync.ts";
 
 config();
 
@@ -33,7 +34,7 @@ CRITICAL — PHONE CALL RULES:
 
 You help customers with two mandatory tasks and one optional one:
 
-MANDATORY — SIGNAL World Tour guessing game: Ask the customer to guess at least one other SIGNAL World Tour stop (they're already in Berlin, so that one doesn't count). The full list is: San Francisco, São Paulo, Mexico City, London, Paris, Singapore, Tokyo, Sydney, and Berlin. As soon as they name at least one correct city, the task is complete — celebrate it and move on. If they want to keep guessing more, let them, but never make them feel they need to name all cities. After they're done guessing, briefly share how many they got and call complete_world_tour_guess. You know all about the SIGNAL World Tour — answer any questions the customer has about it.
+MANDATORY — SIGNAL World Tour guessing game: Ask the customer to guess a SIGNAL World Tour city other than Berlin. NEVER list or hint at the cities — let them guess freely. The correct cities (for your reference only, do not reveal) are: San Francisco, São Paulo, Mexico City, London, Paris, Singapore, Tokyo, and Sydney. When they guess correctly, just say it's right without repeating the full list or revealing what else is on it. As soon as they get one correct, the task is complete — move on. If they want to keep guessing, let them. After they're done, briefly share how many they got and call complete_world_tour_guess.
 
 MANDATORY — Coffee question: Answer any question the customer has about coffee — types, brewing methods, menu items, preferences. After answering, call complete_coffee_question.
 
@@ -334,6 +335,19 @@ async function handleOpenAIEvent(
 
 // ── Public API ─────────────────────────────────────────────────────────────────
 
+function extractMemoryLists(memory: TACMemoryResponse | undefined): { observations: string[]; summaries: string[] } {
+  if (!memory) return { observations: [], summaries: [] };
+  const data = (memory as any)._data;
+  if (!data) return { observations: [], summaries: [] };
+
+  // _data can be an array (older format) or an object { observations, summaries, communications }
+  if (Array.isArray(data)) return { observations: [], summaries: [] };
+
+  const observations: string[] = (data.observations ?? []).map((o: any) => o?.content ?? o?.text ?? String(o)).filter(Boolean);
+  const summaries: string[] = (data.summaries ?? []).map((s: any) => s?.content ?? s?.text ?? String(s)).filter(Boolean);
+  return { observations, summaries };
+}
+
 export function handleMessage(
   convId: string,
   message: string,
@@ -351,7 +365,13 @@ export function handleMessage(
   }
 
   const sid = state.getCallSid();
-  if (sid) appendSyncHistory(sid, "user", message).catch((err: unknown) => console.error(`[${convId}] appendSyncHistory user failed:`, err));
+  if (sid) {
+    appendSyncHistory(sid, "user", message).catch((err: unknown) => console.error(`[${convId}] appendSyncHistory user failed:`, err));
+    const { observations, summaries } = extractMemoryLists(memory);
+    if (observations.length || summaries.length) {
+      updateCallTracker(sid, { observations, summaries }).catch((err: unknown) => console.error(`[${convId}] updateMemory failed:`, err));
+    }
+  }
   state.input.push({ role: "user", content: message });
 
   const ctrl: StreamController = { tokenQueue: [], notify: null, finished: false, error: null };

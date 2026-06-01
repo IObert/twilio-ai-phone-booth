@@ -9,6 +9,7 @@ import { join, dirname } from "path";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import twilio from "twilio";
 import { WELCOME_GREETING } from "./agent.ts";
+import { updateCallTracker, SYNC_MAP_NAME, SYNC_ITEM_TTL, type CallTrackerItem, type CintelSummary } from "./sync.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 function serveTemplated(file: string, vars: Record<string, string>): string {
@@ -26,26 +27,6 @@ interface OperatorResult {
   referenceIds?: string[];
 }
 
-interface CintelSummary {
-  sentiment?: string;   // label from Sentiment operator
-  summary?: string;     // text from Summary operator
-  // TODO: add fields for additional operators here (e.g. topics, entities)
-}
-
-interface CallTrackerItem {
-  status: "calling" | "in-progress" | "completed";
-  tasks: { coffee_order_placed: boolean; coffee_question_asked: boolean; world_tour_guessed: boolean };
-  history: { role: "user" | "ai"; text: string }[];
-  duration?: number;   // seconds, populated when status → completed
-  viSid?: string;
-  cintel?: CintelSummary;
-}
-
-// ─── constants ────────────────────────────────────────────────────────────────
-
-const SYNC_MAP_NAME = "callTracker";
-const SYNC_ITEM_TTL = 604800; // 7 days in seconds
-
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 function getTwilio() {
@@ -58,34 +39,7 @@ function getPublicBaseUrl(req: FastifyRequest): string {
     return process.env.NGROK_BASE_URL!;
   }
   const proto = req.headers["x-forwarded-proto"] ?? "https";
-
-
   return `${proto}://${host}`;
-}
-
-function getSyncItem(callSid: string) {
-  const syncServiceSid = process.env.TWILIO_SYNC_SERVICE_SID!;
-  return getTwilio().sync.v1.services(syncServiceSid)
-    .syncMaps(SYNC_MAP_NAME).syncMapItems(callSid);
-}
-
-async function updateCallTracker(callSid: string, patch: Partial<CallTrackerItem>, attempt = 0): Promise<void> {
-  try {
-    const item = await getSyncItem(callSid).fetch();
-    const current = item.data as CallTrackerItem;
-    await getSyncItem(callSid).update({
-      data: { ...current, ...patch },
-      ttl: SYNC_ITEM_TTL,
-    });
-  } catch (err: any) {
-    // Sync item not yet created — race between callStatus webhook and Sync write.
-    // Retry up to 5 times with exponential backoff (200ms, 400ms, 800ms, 1600ms, 3200ms).
-    if (err?.status === 404 && attempt < 5) {
-      await new Promise(r => setTimeout(r, 200 * 2 ** attempt));
-      return updateCallTracker(callSid, patch, attempt + 1);
-    }
-    console.error(`[sync] updateCallTracker error (${callSid}):`, err);
-  }
 }
 
 // ─── basic auth ───────────────────────────────────────────────────────────────
@@ -302,7 +256,7 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
   // ── POST /api/beans/coffeeQuestions (AI tool callback) ────────────────────
   app.post("/api/beans/coffeeQuestions", async (req) => {
     const callSid = (req.headers as Record<string, string>)["x-call-sid"] ?? "";
-    const item = await getSyncItem(callSid).fetch();
+    const item = await getTwilio().sync.v1.services(process.env.TWILIO_SYNC_SERVICE_SID!).syncMaps(SYNC_MAP_NAME).syncMapItems(callSid).fetch();
     const current = item.data as CallTrackerItem;
     await updateCallTracker(callSid, { tasks: { ...current.tasks, coffee_question_asked: true } });
     return { ok: true };
@@ -311,7 +265,7 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
   // ── POST /api/beans/worldTourGuess (AI tool callback) ─────────────────────
   app.post("/api/beans/worldTourGuess", async (req) => {
     const callSid = (req.headers as Record<string, string>)["x-call-sid"] ?? "";
-    const item = await getSyncItem(callSid).fetch();
+    const item = await getTwilio().sync.v1.services(process.env.TWILIO_SYNC_SERVICE_SID!).syncMaps(SYNC_MAP_NAME).syncMapItems(callSid).fetch();
     const current = item.data as CallTrackerItem;
     await updateCallTracker(callSid, { tasks: { ...current.tasks, world_tour_guessed: true } });
     return { ok: true };
@@ -409,14 +363,10 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
     }
 
     try {
-      const syncItem = await getSyncItem(callSid).fetch();
+      const syncItem = await getTwilio().sync.v1.services(process.env.TWILIO_SYNC_SERVICE_SID!).syncMaps(SYNC_MAP_NAME).syncMapItems(callSid).fetch();
       const current = syncItem.data as CallTrackerItem;
-      await getSyncItem(callSid).update({
-        ttl: SYNC_ITEM_TTL,
-        data: {
-          ...current,
-          tasks: { ...current.tasks, coffee_order_placed: true },
-        },
+      await updateCallTracker(callSid, {
+        tasks: { coffee_order_placed: true, coffee_question_asked: current.tasks.coffee_question_asked, world_tour_guessed: current.tasks.world_tour_guessed },
       });
     } catch (err) {
       console.error("[order] Sync error:", err);

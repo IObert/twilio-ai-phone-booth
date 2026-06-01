@@ -52,6 +52,7 @@ tac.onMessageReady(async ({ conversationId, message, memory, session }) => {
     session,
     () => callSidByConversationId.get(convId),
   );
+  
   await voiceChannel.sendStreamingResponse(conversationId, stream);
   return null;
 });
