@@ -55,11 +55,11 @@ function getTwilio() {
 function getPublicBaseUrl(req: FastifyRequest): string {
   const host = req.headers.host ?? "";
   if (host.startsWith("localhost") || host.startsWith("127.")) {
-    console.log(`is returning ngrok base url: ${process.env.NGROK_BASE_URL}`);
     return process.env.NGROK_BASE_URL!;
   }
   const proto = req.headers["x-forwarded-proto"] ?? "https";
-  console.log(`is returning public base url: ${proto}://${host}`);
+
+
   return `${proto}://${host}`;
 }
 
@@ -192,23 +192,6 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
       console.error("[startBoothCall] Sync error:", err);
     }
 
-    // 3. Segment identify (fire-and-forget)
-    try {
-      const segmentWriteKey = process.env.SEGMENT_WRITE_KEY!;
-      await fetch("https://api.segment.io/v1/identify", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Basic ${Buffer.from(segmentWriteKey + ":").toString("base64")}`,
-        },
-        body: JSON.stringify({
-          userId: participantEmail,
-          traits: { name: participantName, email: participantEmail },
-        }),
-      });
-    } catch (err) {
-      console.error("[startBoothCall] Segment error:", err);
-    }
 
     return { success: true, callSid };
   });

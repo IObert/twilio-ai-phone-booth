@@ -1,13 +1,16 @@
 import { config } from "dotenv";
 import Fastify from "fastify";
-import { TAC, TACConfig, TACServer, VoiceChannel } from "twilio-agent-connect";
+import { TAC, TACConfig, TACServer, VoiceChannel, createLogger } from "twilio-agent-connect";
 import { clearConversation, handleMessage, promoteSession, warmSession, WELCOME_GREETING } from "./agent.ts";
 import { registerFrontendRoutes } from "./frontend.ts";
 
 config();
 
+const silentLogger = createLogger({ level: "silent" });
+
 const tac = await TAC.create({
   config: TACConfig.fromEnv(),
+  logger: silentLogger,
 });
 const voiceChannel = new VoiceChannel(tac, { memoryMode: "always" });
 
@@ -57,7 +60,7 @@ tac.onConversationEnded(({ session }) => {
   clearConversation(session.conversationId as string);
 });
 
-const app = Fastify({ logger: true, trustProxy: true });
+const app = Fastify({ logger: { level: "warn" }, trustProxy: true });
 
 // Twilio webhooks POST application/x-www-form-urlencoded
 app.addContentTypeParser(

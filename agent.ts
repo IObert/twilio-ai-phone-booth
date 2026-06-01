@@ -207,7 +207,6 @@ function createSession(
   };
 
   ws.on("open", () => {
-    console.log(`[${convId}] OpenAI WS connected`);
     state.wsReady = true;
     state.wsQueue.splice(0).forEach((m) => ws.send(m));
     dispatchNext(convId, state);
@@ -228,7 +227,6 @@ function createSession(
   });
 
   ws.on("close", (code) => {
-    console.log(`[${convId}] OpenAI WS closed (${code})`);
     const err = new Error(`OpenAI WebSocket closed (${code})`);
     if (state.stream) { errorStream(state.stream, err); state.stream = null; }
     for (const r of state.requestQueue) errorStream(r.ctrl, err);
@@ -252,7 +250,6 @@ export function promoteSession(callSid: string, convId: string, getCallSid: () =
   state.getCallSid = getCallSid;
   sessions.delete(callSid);
   sessions.set(convId, state);
-  console.log(`[${convId}] Session promoted from callSid ${callSid}`);
 }
 
 // ── OpenAI event handler ───────────────────────────────────────────────────────

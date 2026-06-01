@@ -8,7 +8,12 @@
       "Bash(curl -sI \"https://mobert.ngrok.io/start\")",
       "Bash(curl -s \"https://mobert.ngrok.io/start\")",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(git -C /Users/mobert/Desktop/tac-voice status)",
+      "Bash(git -C /Users/mobert/Desktop/tac-voice diff)",
+      "Bash(git -C /Users/mobert/Desktop/tac-voice log --oneline -5)",
+      "Bash(git -C /Users/mobert/Desktop/tac-voice add agent.ts frontend.ts public/call.html public/start.html)",
+      "Bash(git -C /Users/mobert/Desktop/tac-voice commit -m ' *)"
     ]
   }
 }
