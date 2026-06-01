@@ -89,6 +89,7 @@ await app.register(import("@fastify/static"), {
 
 const server = new TACServer(tac, {
   fastifyInstance: app,
+  port: process.env.PORT ? parseInt(process.env.PORT, 10) : 8000,
   conversationRelayConfig: {
     welcomeGreeting:
       WELCOME_GREETING,
