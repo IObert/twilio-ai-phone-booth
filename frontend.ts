@@ -49,7 +49,18 @@ const SYNC_ITEM_TTL = 604800; // 7 days in seconds
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 function getTwilio() {
-  return twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!);
+  return twilio(process.env.TWILIO_API_KEY!, process.env.TWILIO_API_SECRET!, { accountSid: process.env.TWILIO_ACCOUNT_SID! });
+}
+
+function getPublicBaseUrl(req: FastifyRequest): string {
+  const host = req.headers.host ?? "";
+  if (host.startsWith("localhost") || host.startsWith("127.")) {
+    console.log(`is returning ngrok base url: ${process.env.NGROK_BASE_URL}`);
+    return process.env.NGROK_BASE_URL!;
+  }
+  const proto = req.headers["x-forwarded-proto"] ?? "https";
+  console.log(`is returning public base url: ${proto}://${host}`);
+  return `${proto}://${host}`;
 }
 
 function getSyncItem(callSid: string) {
@@ -105,8 +116,8 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
   app.get("/call", (_, reply) => reply.sendFile("call.html"));
   app.get("/summary", (_, reply) => reply.sendFile("summary.html"));
 
-  // ── POST /cintel-callback (Conversation Intelligence results) ─────────────
-  app.post("/cintel-callback", async (req) => {
+  // ── POST /intelligence-results (Conversation Intelligence results) ─────────────
+  app.post("/intelligence-results", async (req) => {
     const body = req.body as { operatorResults?: OperatorResult[] } ?? {};
     if (!body.operatorResults?.length) return { ok: true };
 
@@ -136,7 +147,7 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
     const syncServiceSid = process.env.TWILIO_SYNC_SERVICE_SID!;
     const sipAddress = process.env.SIP_PHONE_ADDRESS!;
     const from = process.env.TWILIO_PHONE_NUMBER!;
-    const ngrokBase = process.env.NGROK_BASE_URL!;
+    const ngrokBase = getPublicBaseUrl(req);
 
     // 1. Place outbound call — callSid is the session identifier
     let callSid: string;
@@ -254,11 +265,11 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
   });
 
   // ── POST /api/attractCall (attract-mode: initiate call without user details) ─
-  app.post("/api/attractCall", async (_req, reply) => {
+  app.post("/api/attractCall", async (req, reply) => {
     const client = getTwilio();
     const sipAddress = process.env.SIP_PHONE_ADDRESS!;
     const from = process.env.TWILIO_PHONE_NUMBER!;
-    const ngrokBase = process.env.NGROK_BASE_URL!;
+    const ngrokBase = getPublicBaseUrl(req);
     const syncServiceSid = process.env.TWILIO_SYNC_SERVICE_SID!;
 
     let callSid: string;

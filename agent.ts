@@ -6,9 +6,9 @@ import type { ConversationSession, TACMemoryResponse } from "twilio-agent-connec
 
 config();
 
-const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+const twilioClient = twilio(process.env.TWILIO_API_KEY, process.env.TWILIO_API_SECRET, { accountSid: process.env.TWILIO_ACCOUNT_SID });
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
-const BASE_URL = `${process.env.NGROK_BASE_URL}/api/beans`;
+const BASE_URL = `http://localhost:${process.env.PORT ?? 8000}/api/beans`;
 
 async function appendSyncHistory(callSid: string, role: "user" | "ai", text: string): Promise<void> {
   const syncServiceSid = process.env.TWILIO_SYNC_SERVICE_SID!;

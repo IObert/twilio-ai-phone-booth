@@ -85,7 +85,6 @@ await app.register(import("@fastify/static"), {
 
 const server = new TACServer(tac, {
   fastifyInstance: app,
-  // webhookPaths: { cintel: "/cintel-callback" },
   conversationRelayConfig: {
     welcomeGreeting:
       WELCOME_GREETING,
