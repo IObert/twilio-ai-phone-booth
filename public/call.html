@@ -483,7 +483,7 @@ async function initSync() {
       applyTaskState(d.tasks ?? {});
       applyHistory(d.history ?? []);
       applyViSid(d.viSid);
-      applyMemory(d.observations, d.summaries);
+      applyMemory(d.observations, d.summaries, (d.history ?? []).some(m => m.role === 'user'));
     }
 
     map.on('itemUpdated', ({ item }) => {
@@ -492,7 +492,7 @@ async function initSync() {
       applyTaskState(item.data.tasks ?? {});
       applyHistory(item.data.history ?? []);
       applyViSid(item.data.viSid);
-      applyMemory(item.data.observations, item.data.summaries);
+      applyMemory(item.data.observations, item.data.summaries, (item.data.history ?? []).some(m => m.role === 'user'));
     });
   } catch (err) {
     console.error('[initSync]', err);
@@ -531,20 +531,20 @@ function applyViSid(sid) {
   footerHint.textContent = '';
 }
 
-function applyMemory(observations, summaries) {
+function applyMemory(observations, summaries, userHasSpoken) {
   const obsList = document.getElementById('observationsList');
   const sumList = document.getElementById('summariesList');
+  const empty = `<div style="font-size:12px;color:var(--muted);font-style:italic;">Nothing yet</div>`;
+  const skeleton = `<div class="memory-skeleton"></div><div class="memory-skeleton"></div>`;
 
-  if (Array.isArray(observations)) {
-    obsList.innerHTML = observations.length
-      ? observations.map(o => `<div class="memory-item">${escHtml(o)}</div>`).join('')
-      : `<div style="font-size:12px;color:var(--muted);font-style:italic;">Nothing yet</div>`;
-  }
-  if (Array.isArray(summaries)) {
-    sumList.innerHTML = summaries.length
-      ? summaries.map(s => `<div class="memory-item">${escHtml(s)}</div>`).join('')
-      : `<div style="font-size:12px;color:var(--muted);font-style:italic;">Nothing yet</div>`;
-  }
+  if (!userHasSpoken) return; // keep skeletons until first user reply
+
+  obsList.innerHTML = (observations?.length)
+    ? observations.map(o => `<div class="memory-item">${escHtml(o)}</div>`).join('')
+    : empty;
+  sumList.innerHTML = (summaries?.length)
+    ? summaries.map(s => `<div class="memory-item">${escHtml(s)}</div>`).join('')
+    : empty;
 }
 
 // ── Voice Intelligence ─────────────────────────────────────────────────────
