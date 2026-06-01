@@ -338,14 +338,21 @@
 
       // Handle the case where status already advanced before we subscribed
       const existing = await map.get(callSid).catch(() => null);
-      if (existing?.value?.status === 'in-progress') {
+      if (existing?.data?.status === 'in-progress') {
         location.href = `/call?callSid=${callSid}`;
+        return;
+      }
+      if (existing?.data?.status === 'failed') {
+        showCallError();
         return;
       }
 
       map.on('itemUpdated', ({ item }) => {
-        if (item.key === callSid && item.data.status === 'in-progress') {
+        if (item.key !== callSid) return;
+        if (item.data.status === 'in-progress') {
           location.href = `/call?callSid=${callSid}`;
+        } else if (item.data.status === 'failed') {
+          showCallError();
         }
       });
     } catch (err) {
@@ -353,6 +360,13 @@
       btn.disabled = false;
     }
   });
+
+  function showCallError() {
+    statusMsg.style.color = 'var(--red, #ff4d6d)';
+    statusMsg.textContent = 'Sorry, the call couldn\'t connect. Please let a staff member know.';
+    btn.disabled = false;
+    btn.textContent = 'Try again';
+  }
 
   // ── Attract mode ────────────────────────────────────────────────────────────
   const ATTRACT_MODE = %%ATTRACT_MODE%%;
@@ -386,9 +400,13 @@
         }
         const map = await syncClient.map('callTracker');
         map.on('itemUpdated', ({ item }) => {
-          if (item.key === callSid && item.data.status === 'in-progress') {
+          if (item.key !== callSid) return;
+          if (item.data.status === 'in-progress') {
             overlay.classList.remove('visible');
             location.href = `/call?callSid=${callSid}`;
+          } else if (item.data.status === 'failed') {
+            overlay.classList.remove('visible');
+            showCallError();
           }
         });
       } catch (err) {

@@ -174,14 +174,14 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
     if (!callSid || !callStatus) return { ok: true };
 
     const statusMap: Record<string, CallTrackerItem["status"]> = {
-      initiated:   "calling",
-      ringing:     "calling",
+      initiated:     "calling",
+      ringing:       "calling",
       "in-progress": "in-progress",
-      answered:    "in-progress",
-      completed:   "completed",
-      failed:      "completed",
-      busy:        "completed",
-      "no-answer": "completed",
+      answered:      "in-progress",
+      completed:     "completed",
+      failed:        "failed",
+      busy:          "failed",
+      "no-answer":   "failed",
     };
 
     const syncStatus = statusMap[callStatus];
