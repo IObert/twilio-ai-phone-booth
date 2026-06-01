@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Owl Beans — Live Call</title>
+<title>Twilio Cafe — Live Call</title>
 <style>
   :root {
     --bg: #0d0d12;
@@ -266,8 +266,8 @@
 <header>
   <div class="header-avatar">☕</div>
   <div>
-    <div class="header-brand">Owl Beans</div>
-    <div class="header-sub">AI Barista — Jeff</div>
+    <div class="header-brand">Twilio Cafe</div>
+    <div class="header-sub">AI Barista — Olivia</div>
   </div>
   <div class="header-badge" id="callStatus">
     <div class="dot"></div>
@@ -353,7 +353,7 @@ function addMessage(role, text) {
   div.innerHTML = `
     ${!isUser ? '<div class="msg-avatar">☕</div>' : ''}
     <div>
-      <div class="msg-label">${isUser ? 'You' : 'Jeff'}</div>
+      <div class="msg-label">${isUser ? 'You' : 'Olivia'}</div>
       <div class="msg-bubble">${escHtml(text)}</div>
     </div>
   `;

@@ -84,7 +84,7 @@ function requireBasicAuth(req: FastifyRequest, reply: FastifyReply): boolean {
   }
   reply
     .code(401)
-    .header("WWW-Authenticate", 'Basic realm="Owl Beans Stats"')
+    .header("WWW-Authenticate", 'Basic realm="Twilio Cafe Stats"')
     .send("Unauthorized");
   return false;
 }

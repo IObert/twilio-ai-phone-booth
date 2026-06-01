@@ -32,7 +32,7 @@ The UI is at `http://localhost:8000`. `SIP_PHONE_ADDRESS` accepts any E.164 phon
 
 ## Agent behavior
 
-The agent is "Jeff," a barista at Owl Beans. The system prompt is defined in `agent.ts`. It handles:
+The agent is "Olivia," a barista at Twilio Cafe. The system prompt is defined in `agent.ts`. It handles:
 - Coffee questions (brewing, menu, preferences)
 - Order taking: Espresso, Cortado, Latte, Cappuccino, Americano, British Breakfast Tea, Chai Latte, Flat White — with optional milk/oat milk
 - Directing product questions to the Twilio booth

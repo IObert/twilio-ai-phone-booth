@@ -1,6 +1,6 @@
-# tac-voice
+# Twilio AI Phone Booth (TAC Edition)
 
-An AI voice agent for phone calls powered by [Twilio Agent Connect (TAC)](https://www.twilio.com/docs/agent-connect), OpenAI, and Twilio Conversation Intelligence. Originally built as a conference booth experience for **Twilio SIGNAL World Tour Berlin 2026**, where attendees could call a physical phone and chat with "Jeff," an AI barista at Owl Beans Coffee.
+An AI voice agent for phone calls powered by [Twilio Agent Connect (TAC)](https://www.twilio.com/docs/agent-connect), OpenAI, and Twilio Conversation Intelligence. First built as a conference booth experience for **Twilio SIGNAL World Tour Berlin 2026**, where attendees could call a physical phone and chat with "Olivia," an AI barista at the Twilio Cafe.
 
 ## What it does
 
@@ -12,20 +12,6 @@ An AI voice agent for phone calls powered by [Twilio Agent Connect (TAC)](https:
 - Exposes a protected stats dashboard at `/stats`
 
 ## Architecture
-
-```
-Caller (PSTN) ──► Twilio Voice ──► Twilio Agent Connect ──► server.ts
-                                                                  │
-                                                             agent.ts
-                                                                  │
-                                                       OpenAI Responses API (WebSocket)
-                                                                  │
-                                                           frontend.ts
-                                                                  │
-                                                         Twilio Sync Map
-                                                                  │
-                                                        Browser (start/call/summary/stats)
-```
 
 | File | Responsibility |
 |------|----------------|
