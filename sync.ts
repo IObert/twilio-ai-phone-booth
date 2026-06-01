@@ -23,7 +23,7 @@ function getTwilio() {
   return twilio(process.env.TWILIO_API_KEY!, process.env.TWILIO_API_SECRET!, { accountSid: process.env.TWILIO_ACCOUNT_SID! });
 }
 
-function getSyncItem(callSid: string) {
+export function getSyncItem(callSid: string) {
   return getTwilio().sync.v1
     .services(process.env.TWILIO_SYNC_SERVICE_SID!)
     .syncMaps(SYNC_MAP_NAME)

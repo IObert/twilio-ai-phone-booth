@@ -9,7 +9,7 @@ import { join, dirname } from "path";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import twilio from "twilio";
 import { WELCOME_GREETING } from "./agent.ts";
-import { updateCallTracker, SYNC_MAP_NAME, SYNC_ITEM_TTL, type CallTrackerItem, type CintelSummary } from "./sync.ts";
+import { updateCallTracker, getSyncItem, SYNC_MAP_NAME, SYNC_ITEM_TTL, type CallTrackerItem, type CintelSummary } from "./sync.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 function serveTemplated(file: string, vars: Record<string, string>): string {
@@ -256,7 +256,7 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
   // ── POST /api/beans/coffeeQuestions (AI tool callback) ────────────────────
   app.post("/api/beans/coffeeQuestions", async (req) => {
     const callSid = (req.headers as Record<string, string>)["x-call-sid"] ?? "";
-    const item = await getTwilio().sync.v1.services(process.env.TWILIO_SYNC_SERVICE_SID!).syncMaps(SYNC_MAP_NAME).syncMapItems(callSid).fetch();
+    const item = await getSyncItem(callSid).fetch();
     const current = item.data as CallTrackerItem;
     await updateCallTracker(callSid, { tasks: { ...current.tasks, coffee_question_asked: true } });
     return { ok: true };
@@ -265,7 +265,7 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
   // ── POST /api/beans/worldTourGuess (AI tool callback) ─────────────────────
   app.post("/api/beans/worldTourGuess", async (req) => {
     const callSid = (req.headers as Record<string, string>)["x-call-sid"] ?? "";
-    const item = await getTwilio().sync.v1.services(process.env.TWILIO_SYNC_SERVICE_SID!).syncMaps(SYNC_MAP_NAME).syncMapItems(callSid).fetch();
+    const item = await getSyncItem(callSid).fetch();
     const current = item.data as CallTrackerItem;
     await updateCallTracker(callSid, { tasks: { ...current.tasks, world_tour_guessed: true } });
     return { ok: true };
@@ -363,7 +363,7 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
     }
 
     try {
-      const syncItem = await getTwilio().sync.v1.services(process.env.TWILIO_SYNC_SERVICE_SID!).syncMaps(SYNC_MAP_NAME).syncMapItems(callSid).fetch();
+      const syncItem = await getSyncItem(callSid).fetch();
       const current = syncItem.data as CallTrackerItem;
       await updateCallTracker(callSid, {
         tasks: { coffee_order_placed: true, coffee_question_asked: current.tasks.coffee_question_asked, world_tour_guessed: current.tasks.world_tour_guessed },
