@@ -69,7 +69,7 @@ function getSyncItem(callSid: string) {
     .syncMaps(SYNC_MAP_NAME).syncMapItems(callSid);
 }
 
-async function updateCallTracker(callSid: string, patch: Partial<CallTrackerItem>): Promise<void> {
+async function updateCallTracker(callSid: string, patch: Partial<CallTrackerItem>, attempt = 0): Promise<void> {
   try {
     const item = await getSyncItem(callSid).fetch();
     const current = item.data as CallTrackerItem;
@@ -77,7 +77,13 @@ async function updateCallTracker(callSid: string, patch: Partial<CallTrackerItem
       data: { ...current, ...patch },
       ttl: SYNC_ITEM_TTL,
     });
-  } catch (err) {
+  } catch (err: any) {
+    // Sync item not yet created — race between callStatus webhook and Sync write.
+    // Retry up to 5 times with exponential backoff (200ms, 400ms, 800ms, 1600ms, 3200ms).
+    if (err?.status === 404 && attempt < 5) {
+      await new Promise(r => setTimeout(r, 200 * 2 ** attempt));
+      return updateCallTracker(callSid, patch, attempt + 1);
+    }
     console.error(`[sync] updateCallTracker error (${callSid}):`, err);
   }
 }
