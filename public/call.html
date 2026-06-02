@@ -265,6 +265,23 @@
   }
   #viIframe { flex: 1; border: none; background: #fff; }
 
+  /* ── LAPTOP / LANDSCAPE ── */
+  @media (max-height: 1020px) and (orientation: landscape) {
+    header { padding: 10px clamp(14px, 2vw, 24px); }
+    .header-avatar { width: 38px; height: 38px; }
+    .header-brand { font-size: clamp(14px, 1.6vw, 22px); }
+    .header-sub { font-size: clamp(11px, 1.2vw, 16px); }
+    .header-badge { font-size: clamp(11px, 1.3vw, 16px); padding: 5px 12px; }
+    .task-chip { padding: 8px 6px; font-size: clamp(12px, 1.3vw, 16px); }
+    .task-chip-check { width: 20px; height: 20px; font-size: 11px; }
+    .memory-sidebar { width: clamp(160px, 22vw, 260px); padding: 12px 14px; gap: 14px; }
+    .msg-bubble { font-size: clamp(13px, 1.4vw, 18px); padding: 10px 14px; }
+    .msg-avatar { width: 30px; height: 30px; }
+    footer { padding: 8px clamp(12px, 2vw, 24px); min-height: 44px; }
+    #footerHint { font-size: clamp(12px, 1.3vw, 16px); }
+    #viBtn { font-size: clamp(12px, 1.3vw, 16px); padding: 8px 16px; }
+  }
+
   /* ── FOOTER ── */
   footer {
     flex-shrink: 0;
