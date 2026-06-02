@@ -6,298 +6,313 @@
 <title>Twilio Cafe — Meet Olivia</title>
 <style>
   :root {
-    --bg: #0d0d12;
-    --panel: #161622;
-    --accent: #7c5cfc;
-    --accent2: #e8a838;
-    --text: #f0eef8;
-    --muted: #8b88a8;
-    --radius: 18px;
+    --red: #F22F46;
+    --red-dark: #c0162b;
+    --red-glow: rgba(242,47,70,0.35);
+    --bg: #111114;
+    --panel: #1a1a1f;
+    --border: rgba(255,255,255,0.08);
+    --text: #ffffff;
+    --muted: #9995b3;
+    --radius: 20px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
+  html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
     background: var(--bg);
     color: var(--text);
     font-family: "Segoe UI", system-ui, sans-serif;
-    height: 100vh;
-    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    align-items: stretch;
   }
 
-  /* background blobs */
-  .blob {
-    position: fixed;
-    border-radius: 50%;
-    filter: blur(120px);
-    opacity: 0.18;
-    pointer-events: none;
-  }
-  .blob-1 { width: 600px; height: 600px; background: var(--accent); top: -200px; left: -150px; }
-  .blob-2 { width: 500px; height: 500px; background: var(--accent2); bottom: -180px; right: -100px; }
-
-  .layout {
-    display: flex;
-    gap: 80px;
-    align-items: center;
-    width: 100%;
-    max-width: 1400px;
-    padding: 60px;
+  /* ── HERO PHOTO ── */
+  .hero {
     position: relative;
-    z-index: 1;
+    flex: 0 0 52vh;
+    overflow: hidden;
   }
-
-  /* LEFT: avatar */
-  .avatar-side {
-    flex: 0 0 auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
-    opacity: 0;
-    transform: translateX(-40px);
-    animation: slideIn 0.7s ease 0.2s forwards;
-  }
-  .avatar-ring {
-    width: 320px;
-    height: 320px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    padding: 4px;
-    animation: pulse 3s ease-in-out infinite;
-  }
-  .avatar-inner {
+  .hero img {
     width: 100%;
     height: 100%;
-    border-radius: 50%;
-    background: var(--panel);
+    object-fit: cover;
+    object-position: center 15%;
+    display: block;
+  }
+  /* gradient fade into bg */
+  .hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(17,17,20,0) 40%,
+      rgba(17,17,20,0.6) 75%,
+      rgba(17,17,20,1) 100%
+    );
+  }
+  /* Twilio Cafe label over photo */
+  .hero-brand {
+    position: absolute;
+    top: 28px;
+    left: 36px;
+    z-index: 2;
     display: flex;
     align-items: center;
-    justify-content: center;
-    font-size: 120px;
-    /* placeholder — replace with <img> once avatar asset is available */
+    gap: 12px;
   }
-  .avatar-name {
-    font-size: 28px;
+  .hero-brand-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--red);
+    box-shadow: 0 0 12px var(--red);
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%,100% { box-shadow: 0 0 8px var(--red); }
+    50% { box-shadow: 0 0 22px var(--red); }
+  }
+  .hero-brand-text {
+    font-size: clamp(18px, 2.5vw, 32px);
     font-weight: 700;
-    letter-spacing: 0.5px;
-  }
-  .avatar-role {
-    font-size: 16px;
-    color: var(--muted);
-    letter-spacing: 1px;
+    letter-spacing: 3px;
     text-transform: uppercase;
+    color: #fff;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.6);
   }
 
-  /* RIGHT: info panels + CTA */
-  .info-side {
+  /* ── CONTENT ── */
+  .content {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 24px;
-  }
-  .brand {
-    opacity: 0;
-    transform: translateY(-20px);
-    animation: slideDown 0.6s ease 0.1s forwards;
-  }
-  .brand-name {
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--accent2);
-    text-transform: uppercase;
-    letter-spacing: 3px;
-  }
-  .headline {
-    font-size: 56px;
-    font-weight: 800;
-    line-height: 1.1;
-    background: linear-gradient(135deg, var(--text) 60%, var(--accent));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    align-items: stretch;
+    padding: 0 36px 36px;
+    gap: 28px;
+    overflow: hidden;
   }
 
+  /* name + title */
+  .identity {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: -8px;
+  }
+  .identity-name {
+    font-size: clamp(44px, 6vw, 88px);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -1px;
+  }
+  .identity-role {
+    font-size: clamp(16px, 2vw, 28px);
+    color: var(--muted);
+    font-weight: 400;
+    letter-spacing: 0.5px;
+  }
+
+  /* cards */
   .cards {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
-    opacity: 0;
-    transform: translateY(20px);
-    animation: slideUp 0.5s ease 0.5s forwards;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
   }
   .card {
     background: var(--panel);
-    border: 1px solid rgba(124,92,252,0.25);
-    border-radius: var(--radius);
-    padding: 18px 22px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
   }
   .card.optional {
     border-style: dashed;
-    border-color: rgba(124,92,252,0.18);
   }
-  .card-icon { font-size: 22px; margin-bottom: 6px; }
-  .card-title { font-size: 16px; font-weight: 700; margin-bottom: 3px; display: flex; align-items: center; gap: 8px; }
+  .card-icon {
+    font-size: clamp(26px, 3.5vw, 52px);
+    flex-shrink: 0;
+    width: clamp(50px, 6.5vw, 100px);
+    height: clamp(50px, 6.5vw, 100px);
+    background: rgba(255,255,255,0.05);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .card-body {}
+  .card-title {
+    font-size: clamp(16px, 2.2vw, 30px);
+    font-weight: 700;
+    margin-bottom: 3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
   .card-optional-tag {
     font-size: 10px;
+    font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 1px;
     color: var(--muted);
-    font-weight: 400;
+    background: rgba(255,255,255,0.07);
+    padding: 2px 7px;
+    border-radius: 50px;
   }
-  .card-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .card-desc {
+    font-size: clamp(13px, 1.6vw, 22px);
+    color: var(--muted);
+    line-height: 1.4;
+  }
 
-  .cta-row {
+  /* CTA */
+  .cta-area {
     display: flex;
-    align-items: center;
-    gap: 24px;
-    margin-top: 8px;
-    opacity: 0;
-    animation: slideUp 0.5s ease 0.7s forwards;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
   }
   .btn-start {
-    background: linear-gradient(135deg, var(--accent), #a07cff);
+    background: var(--red);
     border: none;
     color: #fff;
-    font-size: 22px;
-    font-weight: 700;
-    padding: 20px 52px;
-    border-radius: 50px;
+    font-size: clamp(24px, 3.5vw, 52px);
+    font-weight: 800;
+    padding: clamp(24px, 3vw, 44px);
+    border-radius: 18px;
     cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
-    box-shadow: 0 6px 32px rgba(124,92,252,0.5);
     letter-spacing: 0.5px;
+    transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+    box-shadow: 0 8px 36px var(--red-glow);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
-  .btn-start:hover { transform: scale(1.04); box-shadow: 0 10px 40px rgba(124,92,252,0.7); }
-  .btn-start:active { transform: scale(0.97); }
-  .btn-start:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-  .hint {
-    font-size: 14px;
-    color: var(--muted);
-    max-width: 200px;
-    line-height: 1.5;
-  }
-
+  .btn-start:active { transform: scale(0.97); background: var(--red-dark); }
+  .btn-start:disabled { opacity: 0.45; transform: none; box-shadow: none; cursor: not-allowed; }
   .status-msg {
-    font-size: 15px;
-    color: var(--accent2);
     min-height: 22px;
+    font-size: 15px;
+    color: #e8a838;
+    text-align: center;
     transition: opacity 0.3s;
   }
+  .status-msg.error { color: #ff4d6d; }
 
-  @keyframes slideIn  { to { opacity: 1; transform: none; } }
-  @keyframes slideDown { to { opacity: 1; transform: none; } }
-  @keyframes slideUp  { to { opacity: 1; transform: none; } }
-  @keyframes pulse {
-    0%,100% { box-shadow: 0 0 0 0 rgba(124,92,252,0.4); }
-    50% { box-shadow: 0 0 0 20px rgba(124,92,252,0); }
-  }
-
-  /* ── Attract popup ── */
+  /* ── ATTRACT OVERLAY ── */
   #attractOverlay {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.75);
-    backdrop-filter: blur(10px);
+    background: rgba(0,0,0,0.82);
+    backdrop-filter: blur(12px);
     z-index: 200;
     align-items: center;
     justify-content: center;
+    padding: 48px 36px;
   }
   #attractOverlay.visible { display: flex; }
   .attract-modal {
     background: var(--panel);
-    border: 2px solid rgba(124,92,252,0.5);
+    border: 2px solid rgba(242,47,70,0.5);
     border-radius: 28px;
-    padding: 56px 64px;
+    padding: 56px 44px;
     text-align: center;
-    max-width: 480px;
-    width: 90%;
-    box-shadow: 0 0 80px rgba(124,92,252,0.3);
-    animation: attractBounce 1.8s cubic-bezier(0.36,0.07,0.19,0.97) infinite;
+    width: 100%;
+    max-width: 500px;
+    box-shadow: 0 0 80px rgba(242,47,70,0.25);
+    animation: attractBounce 2s cubic-bezier(0.36,0.07,0.19,0.97) infinite;
   }
-  .attract-phone { font-size: 72px; margin-bottom: 20px; }
+  .attract-phone { font-size: 80px; margin-bottom: 24px; line-height: 1; }
   .attract-title {
-    font-size: 32px;
-    font-weight: 800;
-    margin-bottom: 12px;
-    background: linear-gradient(135deg, var(--text) 60%, var(--accent));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    font-size: 36px;
+    font-weight: 900;
+    margin-bottom: 14px;
+    line-height: 1.15;
   }
-  .attract-sub { font-size: 17px; color: var(--muted); line-height: 1.5; margin-bottom: 32px; }
+  .attract-sub {
+    font-size: 18px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 36px;
+  }
   .attract-dismiss {
     background: none;
-    border: 1px solid rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.18);
     color: var(--muted);
-    font-size: 13px;
-    padding: 8px 20px;
+    font-size: 15px;
+    padding: 14px 32px;
     border-radius: 50px;
     cursor: pointer;
-    transition: border-color 0.15s, color 0.15s;
+    touch-action: manipulation;
   }
-  .attract-dismiss:hover { border-color: rgba(255,255,255,0.35); color: var(--text); }
-
   @keyframes attractBounce {
-    0%,100% { transform: translateY(0);    }
-    15%      { transform: translateY(-18px); }
-    30%      { transform: translateY(0);    }
-    45%      { transform: translateY(-10px); }
-    60%      { transform: translateY(0);    }
+    0%,100% { transform: translateY(0); }
+    15%      { transform: translateY(-16px); }
+    30%      { transform: translateY(0); }
+    45%      { transform: translateY(-8px); }
+    60%      { transform: translateY(0); }
   }
 </style>
 </head>
 <body>
-<div class="blob blob-1"></div>
-<div class="blob blob-2"></div>
 
-<div class="layout">
-  <!-- Left: Avatar -->
-  <div class="avatar-side">
-    <div class="avatar-ring">
-      <div class="avatar-inner">☕</div>
-    </div>
-    <div class="avatar-name">Olivia</div>
-    <div class="avatar-role">AI Barista</div>
+<!-- Hero photo -->
+<div class="hero">
+  <div class="hero-brand">
+    <div class="hero-brand-dot"></div>
+    <div class="hero-brand-text">Twilio Cafe</div>
+  </div>
+  <img src="/barista.png" alt="Olivia — AI Barista" />
+</div>
+
+<!-- Content below photo -->
+<div class="content">
+
+  <div class="identity">
+    <div class="identity-name">Meet Olivia</div>
+    <div class="identity-role">Your AI Barista — powered by Twilio</div>
   </div>
 
-  <!-- Right: Info -->
-  <div class="info-side">
-    <div class="brand">
-      <div class="brand-name">Twilio Cafe</div>
-      <div class="headline">Meet your<br/>AI Barista</div>
-    </div>
-
-    <div class="cards">
-      <div class="card">
-        <div class="card-icon">💬</div>
+  <div class="cards">
+    <div class="card">
+      <div class="card-icon">💬</div>
+      <div class="card-body">
         <div class="card-title">Ask a coffee question</div>
-        <div class="card-desc">Curious about espresso vs americano? Brewing methods? Olivia knows it all.</div>
-      </div>
-
-      <div class="card">
-        <div class="card-icon">🌍</div>
-        <div class="card-title">Guess a World Tour city</div>
-        <div class="card-desc">Can you name a SIGNAL World Tour stop? (Berlin doesn't count — you're already here!)</div>
-      </div>
-
-      <div class="card optional">
-        <div class="card-icon">🛒</div>
-        <div class="card-title">Place a coffee order <span class="card-optional-tag">Optional</span></div>
-        <div class="card-desc">Espresso, Cortado, Cappuccino, Flat White, Americano, Matcha Latte, Cold Brew, Iced Matcha, Iced Latte — with oat or organic dairy milk.</div>
+        <div class="card-desc">Espresso vs americano? Brewing methods? Olivia knows it all.</div>
       </div>
     </div>
 
-    <div class="cta-row">
-      <div>
-        <button class="btn-start" id="startBtn">Start</button>
-        <div class="status-msg" id="statusMsg"></div>
+    <div class="card">
+      <div class="card-icon">🌍</div>
+      <div class="card-body">
+        <div class="card-title">Guess a World Tour city</div>
+        <div class="card-desc">Name a SIGNAL World Tour stop — Berlin doesn't count!</div>
       </div>
-      <div class="hint">Talk to our AI Barista now.</div>
+    </div>
+
+    <div class="card optional">
+      <div class="card-icon">☕</div>
+      <div class="card-body">
+        <div class="card-title">Place a coffee order <span class="card-optional-tag">Optional</span></div>
+        <div class="card-desc">Espresso, Cortado, Latte, Cappuccino, Flat White and more.</div>
+      </div>
     </div>
   </div>
+
+  <div class="cta-area">
+    <button class="btn-start" id="startBtn">Tap to Start</button>
+    <div class="status-msg" id="statusMsg"></div>
+  </div>
+
 </div>
 
 <!-- Attract-mode popup -->
@@ -305,7 +320,7 @@
   <div class="attract-modal">
     <div class="attract-phone">📞</div>
     <div class="attract-title">Pick up to talk<br/>to our AI</div>
-    <div class="attract-sub">Chat with Olivia, our AI barista — ask a coffee question or guess a SIGNAL World Tour city.</div>
+    <div class="attract-sub">Chat with Olivia — ask a coffee question or guess a SIGNAL World Tour city.</div>
     <button class="attract-dismiss" id="attractDismiss">Dismiss</button>
   </div>
 </div>
@@ -316,6 +331,7 @@
 
   btn.addEventListener('click', async () => {
     btn.disabled = true;
+    statusMsg.className = 'status-msg';
     statusMsg.textContent = 'Starting call…';
 
     try {
@@ -328,15 +344,13 @@
       if (!data.success) throw new Error(data.error ?? 'Unknown error');
 
       const callSid = data.callSid;
-      statusMsg.textContent = 'Ringing… waiting for call to connect.';
+      statusMsg.textContent = 'Ringing…';
 
-      // Subscribe to the callTracker Sync map item for this callSid
       const tokenRes = await fetch('/api/getSyncToken', { method: 'POST' });
       const { token } = await tokenRes.json();
       const syncClient = new Twilio.Sync.Client(token);
       const map = await syncClient.map('callTracker');
 
-      // Handle the case where status already advanced before we subscribed
       const existing = await map.get(callSid).catch(() => null);
       if (existing?.data?.status === 'in-progress') {
         location.href = `/call?callSid=${callSid}`;
@@ -356,14 +370,15 @@
         }
       });
     } catch (err) {
+      statusMsg.className = 'status-msg error';
       statusMsg.textContent = `Error: ${err.message}`;
       btn.disabled = false;
     }
   });
 
   function showCallError() {
-    statusMsg.style.color = 'var(--red, #ff4d6d)';
-    statusMsg.textContent = 'Sorry, the call couldn\'t connect. Please let a staff member know.';
+    statusMsg.className = 'status-msg error';
+    statusMsg.textContent = "Sorry, the call couldn't connect. Please let a staff member know.";
     btn.disabled = false;
     btn.textContent = 'Try again';
   }
@@ -373,26 +388,23 @@
   const ATTRACT_DEV  = %%ATTRACT_DEV%%;
 
   if (ATTRACT_MODE || ATTRACT_DEV) {
-    const overlay       = document.getElementById('attractOverlay');
-    const dismissBtn    = document.getElementById('attractDismiss');
-    let attractFired    = false;   // dev mode: only once
-    let attractTimer    = null;
-    let syncClient      = null;
+    const overlay = document.getElementById('attractOverlay');
+    const dismissBtn = document.getElementById('attractDismiss');
+    let attractFired = false;
+    let attractTimer = null;
+    let syncClient = null;
 
     async function showAttractPopup() {
       if (ATTRACT_DEV && attractFired) return;
       attractFired = true;
       overlay.classList.add('visible');
 
-      // Kick off the call immediately so the phone rings as the popup shows
       try {
         const res = await fetch('/api/attractCall', { method: 'POST' });
         const data = await res.json();
         if (!data.success) throw new Error(data.error ?? 'Unknown error');
-
         const callSid = data.callSid;
 
-        // Navigate to /call as soon as the callee answers
         if (!syncClient) {
           const tokenRes = await fetch('/api/getSyncToken', { method: 'POST' });
           const { token } = await tokenRes.json();
@@ -416,13 +428,9 @@
     }
 
     function scheduleNext() {
-      if (ATTRACT_DEV) return; // dev: no repeat
-      // Random delay between 5 and 10 minutes (in ms)
+      if (ATTRACT_DEV) return;
       const delay = (5 + Math.random() * 5) * 60 * 1000;
-      attractTimer = setTimeout(() => {
-        showAttractPopup();
-        scheduleNext();
-      }, delay);
+      attractTimer = setTimeout(() => { showAttractPopup(); scheduleNext(); }, delay);
     }
 
     function resetAttractTimer() {
@@ -435,8 +443,7 @@
       resetAttractTimer();
     });
 
-    // Dismiss and reset timer on any user interaction with the main UI
-    ['mousemove', 'mousedown', 'keydown', 'touchstart'].forEach(evt =>
+    ['touchstart', 'mousedown', 'keydown'].forEach(evt =>
       document.addEventListener(evt, resetAttractTimer, { passive: true })
     );
 
