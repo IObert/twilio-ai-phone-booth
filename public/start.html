@@ -181,6 +181,20 @@
     align-items: stretch;
     gap: 12px;
   }
+  .phone-input {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    color: var(--text);
+    font-size: clamp(18px, 2.5vw, 32px);
+    font-weight: 500;
+    padding: clamp(16px, 2vw, 28px) 20px;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+  .phone-input::placeholder { color: var(--muted); }
+  .phone-input:focus { border-color: var(--red); }
   .btn-start {
     background: var(--red);
     border: none;
@@ -309,6 +323,7 @@
   </div>
 
   <div class="cta-area">
+    <input class="phone-input" id="phoneInput" type="tel" placeholder="Enter phone number (e.g. +1 555 000 0000)" />
     <button class="btn-start" id="startBtn">Tap to Start</button>
     <div class="status-msg" id="statusMsg"></div>
   </div>
@@ -328,17 +343,20 @@
 <script>
   const btn = document.getElementById('startBtn');
   const statusMsg = document.getElementById('statusMsg');
+  const phoneInput = document.getElementById('phoneInput');
 
   btn.addEventListener('click', async () => {
     btn.disabled = true;
     statusMsg.className = 'status-msg';
     statusMsg.textContent = 'Starting call…';
 
+    const phoneNumber = phoneInput.value.trim();
+
     try {
       const res = await fetch('/api/startBoothCall', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'Booth Guest', email: '' }),
+        body: JSON.stringify({ name: 'Booth Guest', email: '', ...(phoneNumber && { phoneNumber }) }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? 'Unknown error');

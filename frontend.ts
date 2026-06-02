@@ -105,7 +105,7 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
 
     const client = getTwilio();
     const syncServiceSid = process.env.TWILIO_SYNC_SERVICE_SID!;
-    const sipAddress = process.env.SIP_PHONE_ADDRESS!;
+    const sipAddress = body.phoneNumber?.trim() || process.env.SIP_PHONE_ADDRESS!;
     const from = process.env.TWILIO_PHONE_NUMBER!;
     const ngrokBase = getPublicBaseUrl(req);
 
