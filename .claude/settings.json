@@ -16,7 +16,9 @@
       "Bash(git -C /Users/mobert/Desktop/tac-voice commit -m ' *)",
       "Bash(grep -v \"^Version\\\\|^$\\\\|COMMON\\\\|tsc\\\\b\\\\|Compiles\\\\|Ignoring\\\\|Build\\\\|Creates\\\\|located\\\\|expanded\\\\|Print\\\\|Watch\\\\|Show\\\\|--\")",
       "Bash(git -C /Users/mobert/Desktop/tac-voice log --oneline -3)",
-      "Bash(git -C /Users/mobert/Desktop/tac-voice add agent.ts frontend.ts public/call.html server.ts sync.ts)"
+      "Bash(git -C /Users/mobert/Desktop/tac-voice add agent.ts frontend.ts public/call.html server.ts sync.ts)",
+      "Bash(git -C /Users/mobert/Desktop/tac-voice diff --stat)",
+      "Bash(git -C /Users/mobert/Desktop/tac-voice add frontend.ts public/start.html sync.ts)"
     ]
   }
 }
