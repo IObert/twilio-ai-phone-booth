@@ -165,6 +165,7 @@ interface ConversationState {
   stream: StreamController | null;
   functionCalls: Map<string, { name: string; args: string; callId: string; itemId: string }>;
   getCallSid: () => string | undefined;
+  pendingEndCall: boolean;
 }
 
 const sessions = new Map<string, ConversationState>();
@@ -205,6 +206,7 @@ function createSession(
     stream: null,
     functionCalls: new Map(),
     getCallSid,
+    pendingEndCall: false,
   };
 
   ws.on("open", () => {
@@ -289,13 +291,8 @@ async function handleOpenAIEvent(
 
     let result: string;
     if (fc.name === "end_call") {
-      const callSid = state.getCallSid();
-      if (callSid) {
-        try { await twilioClient.calls(callSid).update({ status: "completed" }); result = "Call terminated."; }
-        catch (err) { result = JSON.stringify({ error: err instanceof Error ? err.message : String(err) }); }
-      } else {
-        result = JSON.stringify({ error: "No active call SID found." });
-      }
+      state.pendingEndCall = true;
+      result = "Farewell message queued. Say a brief goodbye to the caller now.";
     } else {
       try { result = await executeTool(fc.name, JSON.parse(fc.args || "{}"), state.getCallSid()); }
       catch (err) { result = JSON.stringify({ error: err instanceof Error ? err.message : String(err) }); }
@@ -321,7 +318,19 @@ async function handleOpenAIEvent(
     if (!hasFunctionCall) {
       if (state.stream) { finishStream(state.stream); state.stream = null; }
       state.busy = false;
-      dispatchNext(convId, state);
+      if (state.pendingEndCall) {
+        state.pendingEndCall = false;
+        const callSid = state.getCallSid();
+        if (callSid) {
+          // Delay to allow TTS playback of the farewell before hanging up
+          setTimeout(() => {
+            twilioClient.calls(callSid).update({ status: "completed" })
+              .catch((err: unknown) => console.error(`[${convId}] end_call hangup failed:`, err));
+          }, 3000);
+        }
+      } else {
+        dispatchNext(convId, state);
+      }
     }
 
   } else if (event.type === "error") {
