@@ -19,9 +19,38 @@ tac.registerChannel(voiceChannel);
 // Map conversationId → callSid so the agent can terminate calls
 const callSidByConversationId = new Map<string, string>();
 let pendingCallSid: string | undefined;
+const pendingCallInfo = new Map<string, { agentPhone: string }>();
 
-voiceChannel.on("setup", ({ callSid }: { callSid: string }) => {
+async function fixParticipantRoles(conversationId: string, agentPhone: string): Promise<void> {
+  const apiKey = process.env.TWILIO_API_KEY!;
+  const apiSecret = process.env.TWILIO_API_SECRET!;
+  const auth = Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
+  const base = "https://conversations.twilio.com";
+
+  const listRes = await fetch(`${base}/v2/Conversations/${conversationId}/Participants`, {
+    headers: { Authorization: `Basic ${auth}` },
+  });
+  if (!listRes.ok) return;
+
+  type Participant = { id: string; type?: string; addresses?: Array<{ channel: string; address: string }> };
+  const { participants } = await listRes.json() as { participants: Participant[] };
+
+  for (const p of participants) {
+    const voiceAddr = p.addresses?.find((a) => a.channel === "VOICE")?.address;
+    if (!voiceAddr) continue;
+    const targetType = voiceAddr === agentPhone ? "AI_AGENT" : "CUSTOMER";
+    if (p.type === targetType) continue;
+    await fetch(`${base}/v2/Conversations/${conversationId}/Participants/${p.id}`, {
+      method: "PUT",
+      headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ type: targetType, addresses: p.addresses }),
+    });
+  }
+}
+
+voiceChannel.on("setup", ({ callSid, from }: { callSid: string; from?: string }) => {
   pendingCallSid = callSid;
+  if (from) pendingCallInfo.set(callSid, { agentPhone: from });
   warmSession(callSid);
 });
 
@@ -30,7 +59,13 @@ voiceChannel.on(
   ({ conversationId }: { conversationId: string }) => {
     if (pendingCallSid) {
       callSidByConversationId.set(conversationId, pendingCallSid);
-promoteSession(pendingCallSid, conversationId, () => callSidByConversationId.get(conversationId));
+      promoteSession(pendingCallSid, conversationId, () => callSidByConversationId.get(conversationId));
+      const info = pendingCallInfo.get(pendingCallSid);
+      if (info) {
+        pendingCallInfo.delete(pendingCallSid);
+        fixParticipantRoles(conversationId, info.agentPhone)
+          .catch((err: unknown) => console.error(`[${conversationId}] fixParticipantRoles failed:`, err));
+      }
       pendingCallSid = undefined;
     }
   },
@@ -40,6 +75,7 @@ voiceChannel.on(
   "webSocketDisconnected",
   ({ conversationId }: { conversationId: string }) => {
     callSidByConversationId.delete(conversationId);
+    pendingCallInfo.delete(conversationId);
   },
 );
 
