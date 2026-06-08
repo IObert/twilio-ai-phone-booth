@@ -123,6 +123,7 @@ Deploy to any platform that provides a public HTTPS URL (Fly.io, Railway, Render
 | `TWILIO_TAC_CI_CONFIGURATION_ID` | TAC CI config SID |
 | `SIP_PHONE_ADDRESS` | SIP URI for the booth phone |
 | `OPENAI_API_KEY` | OpenAI API key |
+| `TWILIO_TAC_KNOWLEDGE_BASE_ID` | Knowledge base SID (`know_knowledgebase_...`) for Guinndex pint price lookups (optional) |
 | `STATS_USER` / `STATS_PASS` | Basic auth for the `/stats` dashboard |
 
 Start command: `pnpm start`
@@ -144,6 +145,8 @@ Any interaction with the page (mouse move, keypress, touch) resets the idle time
 
 | Tool | What it does |
 |------|-------------|
+| `search_<knowledge_base_name>` | Searches the Guinndex knowledge base for pint price data (injected at startup if `TWILIO_TAC_KNOWLEDGE_BASE_ID` is set) |
+| `complete_guindex_question` | Logs an answered Guinndex pint price question to the backend |
 | `complete_coffee_question` | Logs an answered coffee question to the backend |
 | `submit_order` | Places a coffee order and returns an order number |
 | `end_call` | Hangs up the call via Twilio |

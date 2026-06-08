@@ -138,7 +138,7 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
           ttl: SYNC_ITEM_TTL,
           data: {
             status: "calling",
-            tasks: { coffee_order_placed: false, coffee_question_asked: false, world_tour_guessed: false },
+            tasks: { coffee_order_placed: false, coffee_question_asked: false, guindex_question_asked: false },
             history: [{ role: "ai", text: WELCOME_GREETING }],
           } satisfies CallTrackerItem,
         });
@@ -242,7 +242,7 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
           ttl: SYNC_ITEM_TTL,
           data: {
             status: "calling",
-            tasks: { coffee_order_placed: false, coffee_question_asked: false, world_tour_guessed: false },
+            tasks: { coffee_order_placed: false, coffee_question_asked: false, guindex_question_asked: false },
             history: [{ role: "ai", text: WELCOME_GREETING }],
           } satisfies CallTrackerItem,
         });
@@ -262,12 +262,12 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
     return { ok: true };
   });
 
-  // ── POST /api/beans/worldTourGuess (AI tool callback) ─────────────────────
-  app.post("/api/beans/worldTourGuess", async (req) => {
+  // ── POST /api/beans/guindexQuestion (AI tool callback) ───────────────────
+  app.post("/api/beans/guindexQuestion", async (req) => {
     const callSid = (req.headers as Record<string, string>)["x-call-sid"] ?? "";
     const item = await getSyncItem(callSid).fetch();
     const current = item.data as CallTrackerItem;
-    await updateCallTracker(callSid, { tasks: { ...current.tasks, world_tour_guessed: true } });
+    await updateCallTracker(callSid, { tasks: { ...current.tasks, guindex_question_asked: true } });
     return { ok: true };
   });
 
@@ -294,7 +294,7 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
     const orderRate      = total ? items.filter(i => i.tasks?.coffee_order_placed).length    / total : 0;
     const questionRate   = total ? items.filter(i => i.tasks?.coffee_question_asked).length  / total : 0;
     const bothRate       = total ? items.filter(i => i.tasks?.coffee_order_placed && i.tasks?.coffee_question_asked).length / total : 0;
-    const worldTourRate  = total ? items.filter(i => i.tasks?.world_tour_guessed).length     / total : 0;
+    const guindexRate  = total ? items.filter(i => i.tasks?.guindex_question_asked).length     / total : 0;
 
     const msgCounts = items.map(i => (i.history ?? []).length);
     const avgMessages = total ? msgCounts.reduce((a, b) => a + b, 0) / total : 0;
@@ -311,7 +311,7 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
       else sentiment.unknown++;
     }
 
-    return { total, orderRate, questionRate, bothRate, worldTourRate, avgMessages, avgDuration, sentiment };
+    return { total, orderRate, questionRate, bothRate, guindexRate, avgMessages, avgDuration, sentiment };
   });
 
   // ── POST /api/beans/order (AI tool callback) ──────────────────────────────
@@ -366,7 +366,7 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
       const syncItem = await getSyncItem(callSid).fetch();
       const current = syncItem.data as CallTrackerItem;
       await updateCallTracker(callSid, {
-        tasks: { coffee_order_placed: true, coffee_question_asked: current.tasks.coffee_question_asked, world_tour_guessed: current.tasks.world_tour_guessed },
+        tasks: { coffee_order_placed: true, coffee_question_asked: current.tasks.coffee_question_asked, guindex_question_asked: current.tasks.guindex_question_asked },
       });
     } catch (err) {
       console.error("[order] Sync error:", err);

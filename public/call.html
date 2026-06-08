@@ -331,9 +331,9 @@
     <div class="task-chip-check"></div>
     <div>Coffee question</div>
   </div>
-  <div class="task-chip" id="task-world-tour">
+  <div class="task-chip" id="task-guindex">
     <div class="task-chip-check"></div>
-    <div>World Tour city</div>
+    <div>Guinndex question</div>
   </div>
   <div class="task-chip" id="task-order">
     <div class="task-chip-check"></div>
@@ -436,14 +436,14 @@ function addToolCard(data) {
         <div class="tool-detail">${escHtml(String(data.question ?? ''))}</div>
       </div>`;
     markTask('task-question');
-  } else if (data.tool === 'worldTourGuess') {
+  } else if (data.tool === 'guindexQuestion') {
     card.innerHTML = `
-      <div class="tool-icon">🌍</div>
+      <div class="tool-icon">🍺</div>
       <div>
-        <div class="tool-title">World Tour Guessed</div>
-        <div class="tool-detail">${escHtml(String(data.citiesGuessed ?? 0))} cities identified</div>
+        <div class="tool-title">Guinndex Question Answered</div>
+        <div class="tool-detail">${escHtml(String(data.question ?? ''))}</div>
       </div>`;
-    markTask('task-world-tour');
+    markTask('task-guindex');
   } else if (data.tool === 'traitInferred') {
     card.innerHTML = `
       <div class="tool-icon">🏷️</div>
@@ -536,7 +536,7 @@ function applyStatus(value) {
 function applyTaskState(data) {
   if (data.coffee_question_asked) markTask('task-question');
   if (data.coffee_order_placed)   markTask('task-order');
-  if (data.world_tour_guessed)    markTask('task-world-tour');
+  if (data.guindex_question_asked) markTask('task-guindex');
 }
 
 function applyHistory(messages) {

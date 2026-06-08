@@ -7,7 +7,7 @@ export interface CintelSummary {
 
 export interface CallTrackerItem {
   status: "calling" | "in-progress" | "completed" | "failed";
-  tasks: { coffee_order_placed: boolean; coffee_question_asked: boolean; world_tour_guessed: boolean };
+  tasks: { coffee_order_placed: boolean; coffee_question_asked: boolean; guindex_question_asked: boolean };
   history: { role: "user" | "ai"; text: string }[];
   duration?: number;
   viSid?: string;

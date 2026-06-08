@@ -18,7 +18,35 @@
       "Bash(git -C /Users/mobert/Desktop/tac-voice log --oneline -3)",
       "Bash(git -C /Users/mobert/Desktop/tac-voice add agent.ts frontend.ts public/call.html server.ts sync.ts)",
       "Bash(git -C /Users/mobert/Desktop/tac-voice diff --stat)",
-      "Bash(git -C /Users/mobert/Desktop/tac-voice add frontend.ts public/start.html sync.ts)"
+      "Bash(git -C /Users/mobert/Desktop/tac-voice add frontend.ts public/start.html sync.ts)",
+      "Bash(node -e \"const m = require\\('/Users/mobert/Desktop/tac-voice/node_modules/twilio-agent-connect/dist/index.js'\\); console.log\\(Object.keys\\(m\\)\\)\")",
+      "Bash(node -e ' *)",
+      "Bash(awk 'NR>=4200 && NR<=4350 {print NR\": \"$0}' /Users/mobert/Desktop/tac-voice/node_modules/twilio-agent-connect/dist/index.js)",
+      "Bash(awk 'NR>=4360 && NR<=4510p' /Users/mobert/Desktop/tac-voice/node_modules/twilio-agent-connect/dist/index.js)",
+      "Bash(awk 'NR>=4060 && NR<=4600 {print NR\": \"$0}' /Users/mobert/Desktop/tac-voice/node_modules/twilio-agent-connect/dist/index.js)",
+      "Bash(awk 'NR>=4130 && NR<=4230 {print NR\": \"$0}' /Users/mobert/Desktop/tac-voice/node_modules/twilio-agent-connect/dist/index.js)",
+      "Bash(awk 'NR>=4060 {print NR\": \"$0}' /Users/mobert/Desktop/tac-voice/node_modules/twilio-agent-connect/dist/index.js)",
+      "Bash(awk 'NR>=4475 && NR<=4495 {print NR\": \"$0}' /Users/mobert/Desktop/tac-voice/node_modules/twilio-agent-connect/dist/index.js)",
+      "Bash(awk 'NR>=2800 && NR<=3100 {print NR\": \"$0}' /Users/mobert/Desktop/tac-voice/node_modules/twilio-agent-connect/dist/index.js)",
+      "Bash(awk 'NR>=4060 && NR<=5660 {print NR\": \"$0}' /Users/mobert/Desktop/tac-voice/node_modules/twilio-agent-connect/dist/index.js)",
+      "Bash(awk 'NR>=2638 && NR<=2830 {print NR\": \"$0}' /Users/mobert/Desktop/tac-voice/node_modules/twilio-agent-connect/dist/index.js)",
+      "Bash(awk 'NR>=3060 && NR<=3135 {print NR\": \"$0}' /Users/mobert/Desktop/tac-voice/node_modules/twilio-agent-connect/dist/index.js)",
+      "Bash(awk 'NR>=5190 && NR<=5470 {print NR\": \"$0}' /Users/mobert/Desktop/tac-voice/node_modules/twilio-agent-connect/dist/index.js)",
+      "Bash(awk 'NR>=2349 && NR<=2430 {print NR\": \"$0}' /Users/mobert/Desktop/tac-voice/node_modules/twilio-agent-connect/dist/index.js)",
+      "Bash(awk 'NR>=4556 && NR<=4660 {print NR\": \"$0}' /Users/mobert/Desktop/tac-voice/node_modules/twilio-agent-connect/dist/index.js)",
+      "Bash(awk 'NR>=1619 && NR<=1660 {print NR\": \"$0}' /Users/mobert/Desktop/tac-voice/node_modules/twilio-agent-connect/dist/index.js)",
+      "Bash(npx ts-node *)",
+      "Bash(node --input-type=module --loader ts-node/esm)",
+      "Bash(node --loader ts-node/esm --input-type=module)",
+      "Bash(2>&1)",
+      "Bash(git -C /Users/mobert/Desktop/tac-voice add server.ts)",
+      "Bash(node --input-type=module)",
+      "Bash(find /Users/mobert/Desktop -name \"phone-booth*\" 2>/dev/null; ls /Users/mobert/Desktop/tac-voice/)",
+      "Read(//Users/mobert/Desktop/**)",
+      "Bash(cp /Users/mobert/Desktop/phone-booth-export.json /Users/mobert/Desktop/tac-voice/phone-booth-export.json)"
+    ],
+    "additionalDirectories": [
+      "/Users/mobert/Desktop"
     ]
   }
 }

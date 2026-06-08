@@ -1,15 +1,30 @@
 import { config } from "dotenv";
 import WebSocket from "ws";
 import twilio from "twilio";
-import { MemoryPromptBuilder } from "twilio-agent-connect";
+import { MemoryPromptBuilder, KnowledgeClient, createKnowledgeTools } from "twilio-agent-connect";
 import type { ConversationSession, TACMemoryResponse } from "twilio-agent-connect";
 import { updateCallTracker } from "./sync.ts";
+
 
 config();
 
 const twilioClient = twilio(process.env.TWILIO_API_KEY, process.env.TWILIO_API_SECRET, { accountSid: process.env.TWILIO_ACCOUNT_SID });
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 const BASE_URL = `http://localhost:${process.env.PORT ?? 8000}/api/beans`;
+
+let knowledgeSearchImpl: ((args: { query: string }) => Promise<unknown>) | null = null;
+let knowledgeToolName: string | null = null;
+
+const knowledgeBaseId = process.env.TWILIO_TAC_KNOWLEDGE_BASE_ID;
+if (knowledgeBaseId) {
+  const kbClient = new KnowledgeClient(
+    { apiKey: process.env.TWILIO_API_KEY!, apiSecret: process.env.TWILIO_API_SECRET! } as any,
+    undefined as any,
+  );
+  const tacTool = await createKnowledgeTools(kbClient).forKnowledgeBaseAsync(knowledgeBaseId);
+  knowledgeToolName = tacTool.name;
+  knowledgeSearchImpl = tacTool.implementation as (args: { query: string }) => Promise<unknown>;
+}
 
 async function appendSyncHistory(callSid: string, role: "user" | "ai", text: string): Promise<void> {
   const syncServiceSid = process.env.TWILIO_SYNC_SERVICE_SID!;
@@ -23,7 +38,7 @@ async function appendSyncHistory(callSid: string, role: "user" | "ai", text: str
     });
 }
 
-export const WELCOME_GREETING = "Welcome to Signal Berlin! I'm Olivia. We've got two things to do together: a quick guessing game where you name a SIGNAL World Tour city, and I can answer your coffee questions. Want to start with the guessing game?";
+export const WELCOME_GREETING = "Welcome to Twilio SIGNAL Berlin! I'm Olivia. I can tell you all about Guinness pint prices across the UK, or help you with a coffee question. What's on your mind?";
 
 const SYSTEM_INSTRUCTIONS = `You are Olivia, a friendly AI barista at Twilio Cafe during Twilio SIGNAL World Tour Berlin 2026. You are talking to customers over the phone.
 
@@ -32,19 +47,19 @@ CRITICAL — PHONE CALL RULES:
 - Keep every response short — 1 to 2 sentences maximum. This is a phone call, not a chat.
 - No filler phrases like "Great choice!" or "Absolutely!". Get to the point.
 
-You help customers with two mandatory tasks and one optional one:
+You can help customers with two things — a Guinndex pint price question and a coffee question — plus optionally take a coffee order. Do not push them to do any of these. If someone seems unsure what to do, you can gently mention they can ask about Guinness pint prices across the UK, ask a coffee question, or order a coffee.
 
-MANDATORY — SIGNAL World Tour guessing game: Ask the customer to guess a SIGNAL World Tour city other than Berlin. NEVER list or hint at the cities — let them guess freely. The correct cities (for your reference only, do not reveal) are: San Francisco, São Paulo, Mexico City, London, Paris, Singapore, Tokyo, and Sydney. When they guess correctly, just say it's right without repeating the full list or revealing what else is on it. As soon as they get one correct, the task is complete — move on. If they want to keep guessing, let them. After they're done, briefly share how many they got and call complete_world_tour_guess.
+GUINNDEX PINT PRICES: The Guinndex (guinndex.co.uk) is an AI-powered survey of Guinness pint prices across UK pubs, covering over 6,700 pubs in England, Scotland, Wales, and Northern Ireland. If someone asks what the Guinndex is, explain this briefly in one sentence. You can answer questions about pint prices — cheapest, dearest, average, biggest price gaps, and comparisons between places. If someone asks about a country or region outside the UK, let them know the Guinndex currently only covers the UK. After answering a Guinndex question, call complete_guindex_question.
 
-MANDATORY — Coffee question: Answer any question the customer has about coffee — types, brewing methods, menu items, preferences. After answering, call complete_coffee_question.
+COFFEE QUESTION: Answer any question the customer has about coffee — types, brewing methods, menu items, preferences. After answering, call complete_coffee_question.
 
-OPTIONAL — Coffee order: If the customer wants to order, great. Menu: Espresso, Cortado, Cappuccino, Flat White, Americano, Matcha Latte, Cold Brew, Iced Matcha, Iced Latte. Oat milk and organic dairy milk available. Once confirmed, call submit_order and read back the order number. Never push the customer to order if they haven't brought it up.
+COFFEE ORDER (optional): If the customer wants to order, great. Menu: Espresso, Cortado, Cappuccino, Flat White, Americano, Matcha Latte, Cold Brew, Iced Matcha, Iced Latte. Oat milk and organic dairy milk available. Once confirmed, call submit_order and read back the order number. Never push the customer to order.
 
-For anything about Twilio products or pricing, tell them to ask at the booth.
+For anything about Twilio products or pricing, tell them to ask at the Twilio booth.
 
-Keep personal details the customer shares in mind — name, preferences — for a more personal experience next time.`;
+Keep personal details the customer shares in mind — name, preferences — for a more personal experience.`;
 
-const tools = [
+const tools: object[] = [
   {
     type: "function",
     name: "complete_coffee_question",
@@ -76,12 +91,12 @@ const tools = [
   },
   {
     type: "function",
-    name: "complete_world_tour_guess",
-    description: "Marks the SIGNAL World Tour guessing game as complete after the customer has made their guesses.",
+    name: "complete_guindex_question",
+    description: "Marks the Guinndex pint price question as complete after answering a customer's question about Guinness pint prices in UK pubs.",
     parameters: {
       type: "object",
-      properties: { citiesGuessed: { type: "number" } },
-      required: ["citiesGuessed"],
+      properties: { question: { type: "string" } },
+      required: ["question"],
     },
   },
   {
@@ -92,13 +107,30 @@ const tools = [
   },
 ];
 
+if (knowledgeSearchImpl && knowledgeToolName) {
+  tools.push({
+    type: "function",
+    name: knowledgeToolName,
+    description: "Search the Guinndex knowledge base for Guinness pint price data. Use this to answer any question about pub prices, cheapest or dearest pints, price gaps, or averages in a given UK area or town.",
+    parameters: {
+      type: "object",
+      properties: { query: { type: "string" } },
+      required: ["query"],
+    },
+  });
+}
+
 const TOOL_URLS: Record<string, string> = {
   complete_coffee_question: `${BASE_URL}/coffeeQuestions`,
   submit_order: `${BASE_URL}/order`,
-  complete_world_tour_guess: `${BASE_URL}/worldTourGuess`,
+  complete_guindex_question: `${BASE_URL}/guindexQuestion`,
 };
 
 async function executeTool(name: string, args: unknown, callSid: string | undefined): Promise<string> {
+  if (name === knowledgeToolName && knowledgeSearchImpl) {
+    const result = await knowledgeSearchImpl(args as { query: string });
+    return JSON.stringify(result);
+  }
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (callSid) headers["x-call-sid"] = callSid;
   const res = await fetch(TOOL_URLS[name], {
