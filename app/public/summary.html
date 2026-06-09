@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Twilio Cafe — Call Summary</title>
+<style>
+  :root {
+    --red: #F22F46;
+    --bg: #111114;
+    --panel: #1a1a1f;
+    --panel2: #222228;
+    --border: rgba(255,255,255,0.08);
+    --green: #3ecf8e;
+    --yellow: #e8a838;
+    --red-neg: #ff4d6d;
+    --text: #ffffff;
+    --muted: #9995b3;
+    --radius: 20px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 24px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  .header-avatar {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid var(--red);
+    flex-shrink: 0;
+  }
+  .header-avatar img { width: 100%; height: 100%; object-fit: cover; object-position: center 12%; }
+  .header-brand { font-size: clamp(18px, 2.2vw, 34px); font-weight: 800; }
+  .header-sub { font-size: clamp(12px, 1.4vw, 20px); color: var(--muted); margin-top: 1px; }
+  .header-done {
+    margin-left: auto;
+    padding: clamp(6px, 0.8vh, 12px) clamp(14px, 1.8vw, 26px);
+    border-radius: 50px;
+    background: rgba(62,207,142,0.12);
+    color: var(--green);
+    font-size: clamp(13px, 1.5vw, 22px);
+    font-weight: 600;
+  }
+
+  /* ── MAIN ── */
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 28px 28px 24px;
+    gap: 22px;
+    overflow: hidden;
+  }
+
+  .section-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  /* sentiment */
+  .sentiment-row {
+    flex-shrink: 0;
+    opacity: 0;
+    transform: translateY(14px);
+    animation: up 0.45s ease 0.1s forwards;
+  }
+  .sentiment-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: clamp(14px, 2vh, 26px) clamp(24px, 3.5vw, 52px);
+    border-radius: 50px;
+    font-size: clamp(20px, 2.8vw, 44px);
+    font-weight: 800;
+    border: 2px solid;
+  }
+  .sentiment-pill.positive { background: rgba(62,207,142,0.12); border-color: rgba(62,207,142,0.4); color: var(--green); }
+  .sentiment-pill.neutral  { background: rgba(232,168,56,0.12);  border-color: rgba(232,168,56,0.4);  color: var(--yellow); }
+  .sentiment-pill.negative { background: rgba(255,77,109,0.12);  border-color: rgba(255,77,109,0.4);  color: var(--red-neg); }
+  .sentiment-pill.loading  { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); color: var(--muted); font-size: 15px; font-weight: 400; }
+  .sentiment-icon { font-size: clamp(28px, 4vw, 60px); }
+
+  /* summary card */
+  .summary-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    transform: translateY(14px);
+    animation: up 0.45s ease 0.25s forwards;
+  }
+  .summary-text {
+    font-size: clamp(17px, 2.2vw, 34px);
+    line-height: 1.7;
+    overflow-y: auto;
+    flex: 1;
+  }
+  .summary-text.loading { color: var(--muted); font-style: italic; }
+
+  /* return button */
+  .return-row {
+    flex-shrink: 0;
+    opacity: 0;
+    animation: up 0.45s ease 0.4s forwards;
+  }
+  .btn-return {
+    display: block;
+    width: 100%;
+    background: var(--red);
+    border: none;
+    color: #fff;
+    font-size: clamp(20px, 3vw, 46px);
+    font-weight: 800;
+    padding: clamp(20px, 2.5vh, 38px);
+    border-radius: 16px;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    touch-action: manipulation;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .btn-return:active { transform: scale(0.97); background: #c0162b; }
+
+  /* ── INACTIVITY OVERLAY ── */
+  #inactOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.82);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 36px;
+  }
+  #inactOverlay.visible { display: flex; }
+  .inact-modal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    padding: 48px 40px;
+    text-align: center;
+    width: 100%;
+    max-width: 500px;
+    animation: popIn 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .inact-emoji { font-size: 56px; margin-bottom: 16px; }
+  .inact-title { font-size: clamp(26px, 3.5vw, 52px); font-weight: 900; margin-bottom: 10px; }
+  .inact-sub { font-size: clamp(15px, 2vw, 28px); color: var(--muted); margin-bottom: 28px; line-height: 1.5; }
+  .inact-countdown {
+    font-size: clamp(64px, 9vw, 130px);
+    font-weight: 900;
+    color: var(--red);
+    line-height: 1;
+    margin-bottom: 32px;
+  }
+  .inact-actions { display: flex; gap: 14px; }
+  .btn-ghost {
+    flex: 1;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 16px;
+    border-radius: 14px;
+    font-size: 16px;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .btn-primary {
+    flex: 1;
+    background: var(--red);
+    border: none;
+    color: #fff;
+    padding: 16px;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  @keyframes up    { to { opacity: 1; transform: none; } }
+  @keyframes popIn { from { opacity:0; transform: scale(0.88); } to { opacity:1; transform: scale(1); } }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="/start" style="display:flex;align-items:center;gap:14px;text-decoration:none;color:inherit;">
+    <div class="header-avatar">
+      <img src="%%BACKGROUND_IMAGE%%" alt="%%IMAGE_ALT%%" />
+    </div>
+    <div>
+      <div class="header-brand">%%AGENT_DISPLAY_NAME%%</div>
+      <div class="header-sub">%%BRAND_NAME%%</div>
+    </div>
+  </a>
+  <div class="header-done">✓ Call complete</div>
+</header>
+
+<main>
+  <div class="sentiment-row">
+    <div class="section-label">Conversation Sentiment</div>
+    <div class="sentiment-pill loading" id="sentimentPill">
+      <span class="sentiment-icon" id="sentimentIcon">⏳</span>
+      <span id="sentimentLabel">Analysing…</span>
+    </div>
+  </div>
+
+  <div class="summary-card">
+    <div class="section-label">Conversation Summary</div>
+    <div class="summary-text loading" id="summaryText">Generating summary…</div>
+  </div>
+
+  <div class="return-row">
+    <a href="/start" class="btn-return">Start a new conversation</a>
+  </div>
+</main>
+
+<!-- Inactivity popup -->
+<div id="inactOverlay">
+  <div class="inact-modal">
+    <div class="inact-emoji">👋</div>
+    <div class="inact-title">Still there?</div>
+    <div class="inact-sub">Returning to start in…</div>
+    <div class="inact-countdown" id="inactCount">10</div>
+    <div class="inact-actions">
+      <button class="btn-ghost" id="btnStay">Keep reading</button>
+      <button class="btn-primary" id="btnReturn">Go to start</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const CALL_SID = params.get('callSid') ?? '';
+
+function render(cintel) {
+  if (cintel.sentiment) {
+    const label = cintel.sentiment;
+    const icons = { positive: '😊', neutral: '😐', negative: '😟' };
+    const pill = document.getElementById('sentimentPill');
+    pill.classList.remove('loading');
+    pill.classList.add(label);
+    document.getElementById('sentimentIcon').textContent = icons[label] ?? '💬';
+    document.getElementById('sentimentLabel').textContent =
+      label.charAt(0).toUpperCase() + label.slice(1);
+  }
+  if (cintel.summary) {
+    const el = document.getElementById('summaryText');
+    el.classList.remove('loading');
+    el.textContent = cintel.summary;
+  }
+}
+
+async function initSync() {
+  const tokenRes = await fetch('/api/getSyncToken', { method: 'POST' });
+  const { token } = await tokenRes.json();
+  const syncClient = new Twilio.Sync.Client(token);
+  const map = await syncClient.map('callTracker');
+
+  async function tryRender() {
+    const item = await map.get(CALL_SID).catch(() => null);
+    if (item?.data?.cintel) { render(item.data.cintel); return true; }
+    return false;
+  }
+
+  if (await tryRender()) return;
+
+  map.on('itemUpdated', ({ item }) => {
+    if (item.key !== CALL_SID) return;
+    if (item.data?.cintel) render(item.data.cintel);
+  });
+}
+
+// ── Inactivity ─────────────────────────────────────────────────────────────
+const overlay = document.getElementById('inactOverlay');
+const countEl = document.getElementById('inactCount');
+const btnStay = document.getElementById('btnStay');
+const btnReturn = document.getElementById('btnReturn');
+let idleTimer = null;
+let countdownTimer = null;
+let countdown = 10;
+
+function resetIdle() {
+  clearTimeout(idleTimer);
+  if (!overlay.classList.contains('visible'))
+    idleTimer = setTimeout(showPopup, 15000);
+}
+function showPopup() {
+  countdown = 10;
+  countEl.textContent = countdown;
+  overlay.classList.add('visible');
+  countdownTimer = setInterval(() => {
+    countdown--;
+    countEl.textContent = countdown;
+    if (countdown <= 0) goToStart();
+  }, 1000);
+}
+function dismissPopup() {
+  clearInterval(countdownTimer);
+  overlay.classList.remove('visible');
+  resetIdle();
+}
+function goToStart() {
+  clearInterval(countdownTimer);
+  clearTimeout(idleTimer);
+  location.href = '/start';
+}
+
+btnStay.addEventListener('click', dismissPopup);
+btnReturn.addEventListener('click', goToStart);
+['touchstart', 'mousedown', 'keydown', 'scroll'].forEach(evt =>
+  document.addEventListener(evt, resetIdle, { passive: true })
+);
+resetIdle();
+</script>
+
+<script src="https://media.twiliocdn.com/sdk/js/sync/releases/3.0.1/twilio-sync.min.js"
+        onload="initSync()" onerror="console.error('Sync SDK failed to load')"></script>
+</body>
+</html>

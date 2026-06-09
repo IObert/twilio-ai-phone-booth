@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Swag Management — Dashboard</title>
+<style>
+  :root {
+    --bg: #0d0d12;
+    --panel: #161622;
+    --panel2: #1e1e2e;
+    --accent: #7c5cfc;
+    --accent2: #e8a838;
+    --green: #3ecf8e;
+    --yellow: #f5c842;
+    --red: #ff4d6d;
+    --orange: #ff8a3d;
+    --text: #f0eef8;
+    --muted: #8b88a8;
+    --radius: 18px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(140px);
+    opacity: 0.10;
+    pointer-events: none;
+  }
+  .blob-1 { width: 500px; height: 500px; background: var(--accent); top: -160px; right: -100px; }
+  .blob-2 { width: 400px; height: 400px; background: var(--accent2); bottom: -120px; left: -80px; }
+
+  header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 20px 48px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    background: var(--panel);
+    position: relative;
+    z-index: 1;
+  }
+  .header-title { font-size: 22px; font-weight: 800; }
+  .header-sub { font-size: 13px; color: var(--muted); margin-top: 1px; }
+
+  .header-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .action-btn {
+    padding: 8px 20px;
+    border-radius: 50px;
+    background: rgba(124,92,252,0.15);
+    border: 1px solid rgba(124,92,252,0.35);
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .action-btn:hover { background: rgba(124,92,252,0.25); }
+  .action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .save-btn {
+    padding: 10px 24px;
+    border-radius: 50px;
+    background: linear-gradient(135deg, var(--green), #2eb87a);
+    border: none;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .save-btn:hover { transform: translateY(-2px); }
+  .save-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 8px;
+    padding: 24px 48px 0;
+    border-bottom: 2px solid rgba(255,255,255,0.05);
+  }
+  .tab {
+    padding: 12px 24px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.2s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  main {
+    flex: 1;
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 40px 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .tab-content {
+    display: none;
+  }
+  .tab-content.active {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+
+  .section-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  /* Summary cards */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  .summary-card {
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: var(--radius);
+    padding: 24px;
+    opacity: 0;
+    transform: translateY(14px);
+    animation: up 0.45s ease forwards;
+  }
+  .summary-card:nth-child(1) { animation-delay: 0.05s; }
+  .summary-card:nth-child(2) { animation-delay: 0.10s; }
+  .summary-card:nth-child(3) { animation-delay: 0.15s; }
+  .summary-card:nth-child(4) { animation-delay: 0.20s; }
+  .summary-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
+  .summary-value {
+    font-size: 36px;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--accent), #a07cff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 1.2;
+    margin-top: 8px;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    opacity: 0;
+    transform: translateY(14px);
+    animation: up 0.45s ease 0.3s forwards;
+  }
+
+  .filter-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .filter-btn {
+    padding: 8px 16px;
+    border-radius: 50px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .filter-btn:hover { background: rgba(255,255,255,0.08); }
+  .filter-btn.active {
+    background: rgba(124,92,252,0.2);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .search-box {
+    margin-left: auto;
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .search-input {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 50px;
+    padding: 8px 16px;
+    color: var(--text);
+    font-size: 13px;
+    width: 200px;
+    transition: all 0.2s;
+  }
+  .search-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: rgba(124,92,252,0.1);
+  }
+  .search-input::placeholder {
+    color: var(--muted);
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  thead {
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  th {
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  td {
+    padding: 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 14px;
+  }
+  tbody tr {
+    transition: background 0.15s;
+  }
+  tbody tr:hover {
+    background: rgba(255,255,255,0.03);
+  }
+
+  .order-number {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--accent);
+    background: rgba(124,92,252,0.1);
+    padding: 4px 10px;
+    border-radius: 6px;
+    display: inline-block;
+  }
+
+  .item-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.05);
+    font-size: 13px;
+  }
+
+  .timestamp {
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 50px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .status-pending { background: rgba(232,168,56,0.2); color: var(--yellow); }
+  .status-completed { background: rgba(62,207,142,0.2); color: var(--green); }
+  .status-cancelled { background: rgba(255,77,109,0.2); color: var(--red); }
+
+  .complete-btn {
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: rgba(62,207,142,0.15);
+    border: 1px solid rgba(62,207,142,0.3);
+    color: var(--green);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .complete-btn:hover {
+    background: rgba(62,207,142,0.25);
+    transform: translateY(-1px);
+  }
+  .complete-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 26px;
+  }
+  .toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255,255,255,0.1);
+    transition: 0.3s;
+    border-radius: 50px;
+  }
+  .toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+  }
+  input:checked + .toggle-slider {
+    background-color: var(--green);
+  }
+  input:checked + .toggle-slider:before {
+    transform: translateX(22px);
+  }
+
+  .stock-input {
+    width: 80px;
+    padding: 6px 10px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 13px;
+    text-align: center;
+  }
+  .stock-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .size-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    background: rgba(124,92,252,0.15);
+    border: 1px solid rgba(124,92,252,0.3);
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-right: 4px;
+  }
+
+  .item-name {
+    font-weight: 600;
+  }
+
+  .item-name-input {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 14px;
+    padding: 6px 10px;
+    font-weight: 600;
+    width: 200px;
+  }
+  .item-name-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .size-stock-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+
+  .size-stock-input {
+    width: 60px;
+    padding: 4px 8px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 12px;
+    text-align: center;
+  }
+  .size-stock-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .delete-btn {
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: rgba(255,77,109,0.15);
+    border: 1px solid rgba(255,77,109,0.3);
+    color: var(--red);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .delete-btn:hover {
+    background: rgba(255,77,109,0.25);
+  }
+
+  .add-item-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    background: rgba(124,92,252,0.15);
+    border: 1px solid rgba(124,92,252,0.35);
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-top: 16px;
+  }
+  .add-item-btn:hover {
+    background: rgba(124,92,252,0.25);
+  }
+
+  .loading-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+  }
+  .empty-text { color: var(--muted); font-size: 15px; }
+
+  @keyframes up { to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<header>
+  <div>
+    <div class="header-title">Swag Management</div>
+    <div class="header-sub">%%STATS_TITLE%%</div>
+  </div>
+  <div class="header-actions">
+    <button class="action-btn" id="autoRefreshBtn" onclick="toggleAutoRefresh()">
+      Auto-refresh: OFF
+    </button>
+    <button class="action-btn" onclick="loadData()">Refresh</button>
+    <button class="action-btn" id="resetBtn" onclick="resetInventory()" style="display:none; background: rgba(255,77,109,0.15); border-color: rgba(255,77,109,0.35); color: var(--red);">Reset to Default</button>
+    <button class="save-btn" id="saveBtn" onclick="saveInventory()" disabled style="display:none;">Save Changes</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('orders')">Orders</button>
+  <button class="tab" onclick="switchTab('inventory')">Inventory</button>
+</div>
+
+<main>
+  <!-- Orders Tab -->
+  <div class="tab-content active" id="ordersTab">
+    <div>
+      <div class="section-label">Summary</div>
+      <div class="summary-grid" id="orderSummary">
+        <div class="loading-state">Loading…</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="section-label">All Orders</div>
+      <div class="filter-bar">
+        <button class="filter-btn active" data-filter="all" onclick="setOrderFilter('all')">All Orders</button>
+        <button class="filter-btn" data-filter="pending" onclick="setOrderFilter('pending')">Pending</button>
+        <button class="filter-btn" data-filter="completed" onclick="setOrderFilter('completed')">Completed</button>
+        <div class="search-box">
+          <input
+            type="text"
+            class="search-input"
+            id="orderSearch"
+            placeholder="Search order #..."
+            oninput="filterOrders()"
+          />
+        </div>
+      </div>
+      <div id="ordersContainer">
+        <div class="loading-state">Loading orders…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Inventory Tab -->
+  <div class="tab-content" id="inventoryTab">
+    <div class="panel">
+      <div class="section-label">Available Items</div>
+      <div id="inventoryContainer">
+        <div class="loading-state">Loading inventory…</div>
+      </div>
+      <button class="add-item-btn" onclick="addNewItem()">+ Add New Item</button>
+    </div>
+  </div>
+</main>
+
+<script>
+// Global state
+let allOrders = [];
+let inventory = null;
+let orderFilter = 'all';
+let orderSearchQuery = '';
+let autoRefreshEnabled = false;
+let autoRefreshTimer = null;
+let hasInventoryChanges = false;
+let currentTab = 'orders';
+
+// Tab switching
+function switchTab(tab) {
+  currentTab = tab;
+
+  // Update tab buttons
+  document.querySelectorAll('.tab').forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
+
+  // Update tab content
+  document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+  document.getElementById(tab + 'Tab').classList.add('active');
+
+  // Show/hide buttons based on tab
+  const saveBtn = document.getElementById('saveBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const autoRefreshBtn = document.getElementById('autoRefreshBtn');
+
+  if (tab === 'inventory') {
+    saveBtn.style.display = 'inline-block';
+    resetBtn.style.display = 'inline-block';
+    autoRefreshBtn.style.display = 'none';
+    // Load both inventory and orders for comparison
+    if (!inventory) loadInventory();
+    if (!allOrders.length) loadOrders().then(() => {
+      if (inventory) renderInventory(); // Re-render with order counts
+    });
+  } else {
+    saveBtn.style.display = 'none';
+    resetBtn.style.display = 'none';
+    autoRefreshBtn.style.display = 'inline-block';
+    if (!allOrders.length) loadOrders();
+  }
+}
+
+// Orders functions
+async function loadOrders() {
+  try {
+    const res = await fetch('/api/orders');
+    if (!res.ok) throw new Error('Failed to load orders');
+
+    const data = await res.json();
+    allOrders = data.orders || [];
+
+    renderOrderSummary(data.summary);
+    renderOrders();
+  } catch (err) {
+    console.error('[loadOrders]', err);
+    document.getElementById('orderSummary').innerHTML = '<div class="loading-state">Failed to load orders</div>';
+    document.getElementById('ordersContainer').innerHTML = '<div class="loading-state">Failed to load orders</div>';
+  }
+}
+
+function renderOrderSummary(summary) {
+  const cards = [
+    { label: 'Total Orders', value: summary.total },
+    { label: 'Pending', value: summary.pending },
+    { label: 'Completed', value: summary.completed },
+    { label: 'Most Popular', value: summary.topItem || 'N/A' },
+  ];
+
+  document.getElementById('orderSummary').innerHTML = cards.map(c => `
+    <div class="summary-card">
+      <div class="summary-label">${c.label}</div>
+      <div class="summary-value">${c.value}</div>
+    </div>
+  `).join('');
+}
+
+function setOrderFilter(filter) {
+  orderFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.filter === filter);
+  });
+  renderOrders();
+}
+
+function filterOrders() {
+  orderSearchQuery = document.getElementById('orderSearch').value;
+  renderOrders();
+}
+
+function renderOrders() {
+  let filtered = orderFilter === 'all'
+    ? allOrders
+    : allOrders.filter(o => o.status === orderFilter);
+
+  if (orderSearchQuery) {
+    filtered = filtered.filter(o =>
+      String(o.orderNumber).toLowerCase().includes(orderSearchQuery.toLowerCase()) ||
+      o.item.toLowerCase().includes(orderSearchQuery.toLowerCase())
+    );
+  }
+
+  if (!filtered.length) {
+    document.getElementById('ordersContainer').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-text">No ${orderSearchQuery ? 'matching' : orderFilter === 'all' ? '' : orderFilter} orders found</div>
+      </div>
+    `;
+    return;
+  }
+
+  document.getElementById('ordersContainer').innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Order #</th>
+          <th>Time</th>
+          <th>Item</th>
+          <th>Size</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filtered.map(order => `
+          <tr>
+            <td><span class="order-number">#${order.orderNumber || 'N/A'}</span></td>
+            <td><span class="timestamp">${formatTime(order.timestamp)}</span></td>
+            <td><span class="item-badge">${escHtml(order.item)}</span></td>
+            <td>${order.size || '—'}</td>
+            <td><span class="status-badge status-${order.status}">${order.status}</span></td>
+            <td>
+              ${order.status === 'pending'
+                ? `<button class="complete-btn" onclick="completeOrder('${order.callSid}')">Complete</button>`
+                : '—'
+              }
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+async function completeOrder(callSid) {
+  if (!confirm('Mark this order as completed?')) return;
+
+  try {
+    const res = await fetch(`/api/orders/${callSid}/complete`, {
+      method: 'PATCH',
+    });
+
+    if (!res.ok) throw new Error('Failed to complete order');
+    await loadOrders();
+  } catch (err) {
+    console.error('[completeOrder]', err);
+    alert('Failed to complete order. Please try again.');
+  }
+}
+
+function formatTime(timestamp) {
+  const d = new Date(timestamp);
+  const now = new Date();
+  const diff = now - d;
+  const mins = Math.floor(diff / 60000);
+
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1440) return `${Math.floor(mins / 60)}h ago`;
+
+  return d.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+// Auto-refresh
+function toggleAutoRefresh() {
+  autoRefreshEnabled = !autoRefreshEnabled;
+  const btn = document.getElementById('autoRefreshBtn');
+
+  if (autoRefreshEnabled) {
+    btn.textContent = 'Auto-refresh: ON';
+    startAutoRefresh();
+  } else {
+    btn.textContent = 'Auto-refresh: OFF';
+    stopAutoRefresh();
+  }
+}
+
+function startAutoRefresh() {
+  stopAutoRefresh();
+  autoRefreshTimer = setInterval(() => {
+    if (currentTab === 'orders') loadOrders();
+  }, 10000);
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+}
+
+// Inventory functions
+async function loadInventory() {
+  try {
+    const res = await fetch('/api/inventory');
+    if (!res.ok) throw new Error('Failed to load inventory');
+
+    inventory = await res.json();
+    renderInventory();
+  } catch (err) {
+    console.error('[loadInventory]', err);
+    document.getElementById('inventoryContainer').innerHTML =
+      '<div class="loading-state">Failed to load inventory</div>';
+  }
+}
+
+function renderInventory() {
+  if (!inventory) return;
+
+  // Calculate orders given out for each item
+  const orderCounts = {};
+  const orderCountsBySize = {};
+
+  allOrders.forEach(order => {
+    if (order.status === 'completed') {
+      const itemName = order.item;
+      orderCounts[itemName] = (orderCounts[itemName] || 0) + 1;
+
+      if (order.size) {
+        const key = `${itemName}-${order.size}`;
+        orderCountsBySize[key] = (orderCountsBySize[key] || 0) + 1;
+      }
+    }
+  });
+
+  document.getElementById('inventoryContainer').innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Item Name</th>
+          <th>Enabled</th>
+          <th>Initial Stock</th>
+          <th>Given Out</th>
+          <th>Remaining</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${inventory.items.map((item, index) => {
+          const givenOut = orderCounts[item.name] || 0;
+
+          return `
+          <tr>
+            <td>
+              <input
+                type="text"
+                class="item-name-input"
+                value="${escHtml(item.name)}"
+                oninput="updateItemName(${index}, this.value)"
+              />
+            </td>
+            <td>
+              <label class="toggle-switch">
+                <input
+                  type="checkbox"
+                  ${item.enabled ? 'checked' : ''}
+                  onchange="toggleItem(${index})"
+                />
+                <span class="toggle-slider"></span>
+              </label>
+            </td>
+            <td>
+              ${item.hasSize && item.sizeStock
+                ? item.sizeStock.map((ss, sIndex) => `
+                  <div class="size-stock-row">
+                    <span class="size-badge">${ss.size}</span>
+                    <input
+                      type="number"
+                      class="size-stock-input"
+                      value="${ss.stock}"
+                      min="0"
+                      placeholder="0"
+                      oninput="updateSizeStock(${index}, ${sIndex}, this.value)"
+                    />
+                  </div>
+                `).join('')
+                : `<input
+                    type="number"
+                    class="stock-input"
+                    value="${item.stock ?? ''}"
+                    placeholder="∞"
+                    min="0"
+                    oninput="updateStock(${index}, this.value)"
+                  />`
+              }
+            </td>
+            <td>
+              ${item.hasSize && item.sizeStock
+                ? item.sizeStock.map((ss) => {
+                  const sizeGivenOut = orderCountsBySize[`${item.name}-${ss.size}`] || 0;
+                  return `
+                    <div class="size-stock-row">
+                      <span class="size-badge">${ss.size}</span>
+                      <span class="timestamp">${sizeGivenOut}</span>
+                    </div>
+                  `;
+                }).join('')
+                : `<span class="timestamp">${givenOut}</span>`
+              }
+            </td>
+            <td>
+              ${item.hasSize && item.sizeStock
+                ? item.sizeStock.map((ss) => {
+                  const sizeGivenOut = orderCountsBySize[`${item.name}-${ss.size}`] || 0;
+                  const remaining = ss.stock - sizeGivenOut;
+                  const color = remaining <= 0 ? 'var(--red)' : remaining <= 5 ? 'var(--yellow)' : 'var(--green)';
+                  return `
+                    <div class="size-stock-row">
+                      <span class="size-badge">${ss.size}</span>
+                      <span style="color:${color};font-weight:600;">${remaining}</span>
+                    </div>
+                  `;
+                }).join('')
+                : (() => {
+                  if (item.stock === undefined) return '<span class="timestamp">∞</span>';
+                  const remaining = item.stock - givenOut;
+                  const color = remaining <= 0 ? 'var(--red)' : remaining <= 5 ? 'var(--yellow)' : 'var(--green)';
+                  return `<span style="color:${color};font-weight:600;">${remaining}</span>`;
+                })()
+              }
+            </td>
+            <td>
+              <button class="delete-btn" onclick="deleteItem(${index})">Delete</button>
+            </td>
+          </tr>
+        `;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function toggleItem(index) {
+  inventory.items[index].enabled = !inventory.items[index].enabled;
+  markInventoryChanged();
+}
+
+function updateItemName(index, name) {
+  inventory.items[index].name = name;
+  markInventoryChanged();
+}
+
+function updateStock(index, value) {
+  const stock = value === '' ? undefined : parseInt(value, 10);
+  inventory.items[index].stock = stock;
+  markInventoryChanged();
+}
+
+function updateSizeStock(itemIndex, sizeIndex, value) {
+  const stock = parseInt(value, 10) || 0;
+  inventory.items[itemIndex].sizeStock[sizeIndex].stock = stock;
+  markInventoryChanged();
+}
+
+function deleteItem(index) {
+  if (!confirm(`Delete "${inventory.items[index].name}"?`)) return;
+  inventory.items.splice(index, 1);
+  renderInventory();
+  markInventoryChanged();
+}
+
+function addNewItem() {
+  const name = prompt('Enter item name:');
+  if (!name) return;
+
+  const hasSize = confirm('Does this item have size variations (like T-shirts)?');
+
+  const newItem = {
+    name: name,
+    enabled: true,
+    hasSize: hasSize,
+  };
+
+  if (hasSize) {
+    const sizes = prompt('Enter sizes (comma-separated, e.g. S,M,L,XL):');
+    if (sizes) {
+      const sizeList = sizes.split(',').map(s => s.trim()).filter(Boolean);
+      newItem.sizes = sizeList;
+      newItem.sizeStock = sizeList.map(size => ({ size, stock: 0 }));
+    }
+  }
+
+  inventory.items.push(newItem);
+  renderInventory();
+  markInventoryChanged();
+}
+
+function markInventoryChanged() {
+  hasInventoryChanges = true;
+  document.getElementById('saveBtn').disabled = false;
+}
+
+async function saveInventory() {
+  const saveBtn = document.getElementById('saveBtn');
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving...';
+
+  try {
+    const res = await fetch('/api/inventory', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(inventory),
+    });
+
+    if (!res.ok) throw new Error('Failed to save inventory');
+
+    hasInventoryChanges = false;
+    saveBtn.textContent = 'Saved!';
+
+    setTimeout(() => {
+      saveBtn.textContent = 'Save Changes';
+    }, 2000);
+  } catch (err) {
+    console.error('[saveInventory]', err);
+    alert('Failed to save inventory. Please try again.');
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save Changes';
+  }
+}
+
+async function resetInventory() {
+  if (!confirm('Are you sure you want to reset inventory to default?\n\nThis will:\n• Restore all 9 default items\n• Enable all items\n• Reset all stock to 0\n• Remove any custom items you added\n\nThis action cannot be undone.')) {
+    return;
+  }
+
+  const resetBtn = document.getElementById('resetBtn');
+  const saveBtn = document.getElementById('saveBtn');
+  const originalText = resetBtn.textContent;
+
+  resetBtn.disabled = true;
+  resetBtn.textContent = 'Resetting...';
+
+  try {
+    const res = await fetch('/api/inventory/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}), // Empty JSON object to satisfy Fastify
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('[resetInventory] Server error:', res.status, errorText);
+      throw new Error(`Server returned ${res.status}: ${errorText}`);
+    }
+
+    const data = await res.json();
+    console.log('[resetInventory] Success:', data);
+
+    // Update local inventory from server response
+    inventory = data.inventory;
+    hasInventoryChanges = false;
+
+    // Disable save button
+    saveBtn.disabled = true;
+
+    // Show success message
+    resetBtn.textContent = 'Reset Complete!';
+
+    // Reload inventory display
+    await loadInventory();
+
+    setTimeout(() => {
+      resetBtn.textContent = originalText;
+      resetBtn.disabled = false;
+    }, 2000);
+  } catch (err) {
+    console.error('[resetInventory] Error:', err);
+    alert(`Failed to reset inventory: ${err.message}\n\nCheck the browser console for details.`);
+    resetBtn.textContent = originalText;
+    resetBtn.disabled = false;
+  }
+}
+
+// Unified load
+function loadData() {
+  if (currentTab === 'orders') {
+    loadOrders();
+  } else {
+    loadInventory();
+  }
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Warn before leaving with unsaved changes
+window.addEventListener('beforeunload', (e) => {
+  if (hasInventoryChanges) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+// Initial load
+loadOrders();
+</script>
+</body>
+</html>

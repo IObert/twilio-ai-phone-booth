@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Twilio Cafe — Live Call</title>
+<style>
+  :root {
+    --red: #F22F46;
+    --bg: #111114;
+    --panel: #1a1a1f;
+    --panel2: #222228;
+    --border: rgba(255,255,255,0.07);
+    --green: #3ecf8e;
+    --yellow: #e8a838;
+    --text: #ffffff;
+    --muted: #9995b3;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: clamp(12px, 1.5vw, 22px);
+    padding: clamp(14px, 2vh, 24px) clamp(20px, 3vw, 36px);
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  .header-avatar {
+    width: clamp(48px, 6vw, 88px);
+    height: clamp(48px, 6vw, 88px);
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid var(--red);
+    flex-shrink: 0;
+  }
+  .header-avatar img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    object-position: center 12%;
+  }
+  .header-brand { font-size: clamp(18px, 2.2vw, 34px); font-weight: 800; }
+  .header-sub { font-size: clamp(12px, 1.4vw, 20px); color: var(--muted); margin-top: 2px; }
+  .header-badge {
+    margin-left: auto;
+    padding: clamp(6px, 0.8vh, 12px) clamp(14px, 1.8vw, 26px);
+    border-radius: 50px;
+    font-size: clamp(13px, 1.6vw, 22px);
+    font-weight: 600;
+    background: rgba(62,207,142,0.12);
+    color: var(--green);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.3s, color 0.3s;
+  }
+  .dot {
+    width: clamp(7px, 1vw, 12px);
+    height: clamp(7px, 1vw, 12px);
+    border-radius: 50%;
+    background: var(--green);
+    animation: blink 1.2s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+  /* ── TASKS BAR ── */
+  .tasks-bar {
+    flex-shrink: 0;
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+  .task-chip {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: clamp(10px, 1.5vh, 18px) 8px;
+    font-size: clamp(13px, 1.6vw, 22px);
+    font-weight: 600;
+    color: var(--muted);
+    border-right: 1px solid var(--border);
+    transition: color 0.4s, background 0.4s;
+  }
+  .task-chip:last-child { border-right: none; }
+  .task-chip-check {
+    width: clamp(20px, 2.4vw, 36px);
+    height: clamp(20px, 2.4vw, 36px);
+    border-radius: 50%;
+    border: 2px solid var(--muted);
+    display: flex; align-items: center; justify-content: center;
+    font-size: clamp(11px, 1.3vw, 18px);
+    flex-shrink: 0;
+    transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .task-chip.done { color: var(--green); background: rgba(62,207,142,0.06); }
+  .task-chip.done .task-chip-check { background: var(--green); border-color: var(--green); color: #fff; }
+
+  /* ── MAIN AREA: feed + memory sidebar ── */
+  .main-area {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* ── FEED ── */
+  #feed {
+    flex: 1;
+    overflow-y: auto;
+    padding: clamp(16px, 2vh, 28px) clamp(16px, 2.5vw, 32px) 12px;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(12px, 1.5vh, 20px);
+    scroll-behavior: smooth;
+  }
+
+  /* ── MEMORY SIDEBAR ── */
+  .memory-sidebar {
+    flex-shrink: 0;
+    width: clamp(200px, 28vw, 380px);
+    border-left: 1px solid var(--border);
+    background: var(--panel);
+    overflow-y: auto;
+    padding: clamp(16px, 2vh, 28px) clamp(14px, 2vw, 24px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(18px, 2.5vh, 32px);
+  }
+  .panel-title {
+    font-size: clamp(10px, 1.2vw, 16px);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--muted);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2px;
+  }
+  .memory-skeleton {
+    height: clamp(26px, 3.5vh, 42px);
+    border-radius: 8px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+  }
+  .memory-skeleton:nth-child(2) { width: 70%; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  .memory-item {
+    font-size: clamp(13px, 1.5vw, 20px);
+    color: var(--text);
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: clamp(8px, 1vh, 14px) clamp(10px, 1.2vw, 16px);
+    line-height: 1.4;
+  }
+  .memory-empty {
+    font-size: clamp(12px, 1.4vw, 18px);
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  /* ── BUBBLES ── */
+  .msg {
+    display: flex;
+    gap: 10px;
+    max-width: 88%;
+    opacity: 0;
+    transform: translateY(10px);
+    animation: msgIn 0.3s ease forwards;
+  }
+  @keyframes msgIn { to { opacity:1; transform: none; } }
+  .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+  .msg.ai   { align-self: flex-start; }
+  .msg-avatar {
+    width: clamp(34px, 4.5vw, 64px);
+    height: clamp(34px, 4.5vw, 64px);
+    border-radius: 50%;
+    overflow: hidden;
+    border: 1.5px solid rgba(242,47,70,0.6);
+    flex-shrink: 0;
+    margin-top: 4px;
+  }
+  .msg-avatar img { width: 100%; height: 100%; object-fit: cover; object-position: center 12%; }
+  .msg-label { font-size: clamp(11px, 1.3vw, 18px); color: var(--muted); margin-bottom: 4px; }
+  .msg-bubble {
+    padding: clamp(11px, 1.5vh, 20px) clamp(14px, 2vw, 28px);
+    border-radius: 18px;
+    font-size: clamp(15px, 2vw, 30px);
+    line-height: 1.5;
+  }
+  .msg.user .msg-bubble {
+    background: var(--red);
+    border-radius: 18px 4px 18px 18px;
+    box-shadow: 0 4px 16px rgba(242,47,70,0.3);
+  }
+  .msg.ai .msg-bubble {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 4px 18px 18px 18px;
+  }
+
+  /* tool cards */
+  .tool-card {
+    align-self: center;
+    background: var(--panel2);
+    border: 1px solid rgba(232,168,56,0.4);
+    border-radius: var(--radius);
+    padding: clamp(12px, 1.5vh, 20px) clamp(16px, 2vw, 26px);
+    display: flex;
+    align-items: center;
+    gap: clamp(12px, 1.5vw, 22px);
+    max-width: 82%;
+    opacity: 0;
+    transform: translateY(10px);
+    animation: msgIn 0.3s ease forwards;
+  }
+  .tool-icon { font-size: clamp(24px, 3vw, 44px); flex-shrink: 0; }
+  .tool-title { font-weight: 700; color: var(--yellow); font-size: clamp(12px, 1.4vw, 20px); text-transform: uppercase; letter-spacing: 0.5px; }
+  .tool-detail { color: var(--muted); font-size: clamp(13px, 1.5vw, 21px); margin-top: 3px; }
+  .order-number-display {
+    font-family: 'Courier New', monospace;
+    font-weight: 900;
+    font-size: clamp(16px, 2vw, 26px);
+    color: var(--green);
+    background: rgba(62,207,142,0.15);
+    padding: 6px 12px;
+    border-radius: 8px;
+    margin-top: 6px;
+    display: inline-block;
+  }
+
+  /* bookend */
+  .bookend {
+    align-self: center;
+    text-align: center;
+    color: var(--muted);
+    font-size: clamp(13px, 1.6vw, 22px);
+    padding: 10px 22px;
+    border-radius: 50px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+  }
+
+  /* ── VI PANEL ── */
+  #viPanel {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+  }
+  #viPanel.open { display: flex; }
+  #viClose {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: clamp(8px, 1vh, 14px) clamp(16px, 2vw, 28px);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: clamp(13px, 1.5vw, 22px);
+    margin: 12px;
+    align-self: flex-start;
+  }
+  #viIframe { flex: 1; border: none; background: #fff; }
+
+  /* ── LAPTOP / LANDSCAPE ── */
+  @media (max-height: 1020px) and (orientation: landscape) {
+    header { padding: 10px clamp(14px, 2vw, 24px); }
+    .header-avatar { width: 38px; height: 38px; }
+    .header-brand { font-size: clamp(14px, 1.6vw, 22px); }
+    .header-sub { font-size: clamp(11px, 1.2vw, 16px); }
+    .header-badge { font-size: clamp(11px, 1.3vw, 16px); padding: 5px 12px; }
+    .task-chip { padding: 8px 6px; font-size: clamp(12px, 1.3vw, 16px); }
+    .task-chip-check { width: 20px; height: 20px; font-size: 11px; }
+    .memory-sidebar { width: clamp(160px, 22vw, 260px); padding: 12px 14px; gap: 14px; }
+    .msg-bubble { font-size: clamp(13px, 1.4vw, 18px); padding: 10px 14px; }
+    .msg-avatar { width: 30px; height: 30px; }
+    footer { padding: 8px clamp(12px, 2vw, 24px); min-height: 44px; }
+    #footerHint { font-size: clamp(12px, 1.3vw, 16px); }
+    #viBtn { font-size: clamp(12px, 1.3vw, 16px); padding: 8px 16px; }
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    flex-shrink: 0;
+    padding: clamp(12px, 1.5vh, 20px) clamp(16px, 2.5vw, 32px);
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 54px;
+  }
+  #footerHint { color: var(--muted); font-size: clamp(13px, 1.6vw, 22px); flex: 1; }
+  #viBtn {
+    display: none;
+    background: linear-gradient(135deg, var(--yellow), #f0c060);
+    border: none;
+    color: #000;
+    font-size: clamp(13px, 1.6vw, 22px);
+    font-weight: 700;
+    padding: clamp(10px, 1.2vh, 18px) clamp(20px, 2.5vw, 36px);
+    border-radius: 50px;
+    cursor: pointer;
+    touch-action: manipulation;
+    animation: popIn 0.4s ease forwards;
+  }
+  @keyframes popIn { from { opacity:0; transform:scale(0.85); } to { opacity:1; transform:scale(1); } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-avatar">
+    <img src="%%BACKGROUND_IMAGE%%" alt="%%IMAGE_ALT%%" />
+  </div>
+  <div>
+    <div class="header-brand">%%AGENT_DISPLAY_NAME%%</div>
+    <div class="header-sub">%%BRAND_NAME%%</div>
+  </div>
+  <div class="header-badge" id="callStatus">
+    <div class="dot"></div>
+    <span>Connecting…</span>
+  </div>
+</header>
+
+<div class="tasks-bar">
+  <div class="task-chip" id="task-twilio">
+    <div class="task-chip-check"></div>
+    <div>%%TASK_1_LABEL%%</div>
+  </div>
+  <div class="task-chip" id="task-question">
+    <div class="task-chip-check"></div>
+    <div>%%TASK_2_LABEL%%</div>
+  </div>
+  <div class="task-chip" id="task-order">
+    <div class="task-chip-check"></div>
+    <div>%%TASK_3_LABEL%%</div>
+  </div>
+</div>
+
+<div class="main-area">
+  <!-- Chat feed -->
+  <div id="feed"></div>
+
+  <!-- VI panel (replaces feed) -->
+  <div id="viPanel">
+    <button id="viClose">← Back to conversation</button>
+    <iframe id="viIframe" src="about:blank"></iframe>
+  </div>
+
+  <!-- Memory sidebar -->
+  <div class="memory-sidebar">
+    <div>
+      <div class="panel-title">Known Facts</div>
+      <div id="observationsList" style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
+        <div class="memory-skeleton"></div>
+        <div class="memory-skeleton"></div>
+      </div>
+    </div>
+    <div>
+      <div class="panel-title">Past Visits</div>
+      <div id="summariesList" style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
+        <div class="memory-skeleton"></div>
+        <div class="memory-skeleton"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span id="footerHint">Listening for conversation…</span>
+  <button id="viBtn">Voice Intelligence ✨</button>
+</footer>
+
+<script>
+const params = new URLSearchParams(location.search);
+const CALL_SID = params.get('callSid') ?? '';
+
+let callEnded = false;
+let viSid = null;
+let renderedMessageCount = 0;
+
+const feed = document.getElementById('feed');
+const callStatus = document.getElementById('callStatus');
+const viBtn = document.getElementById('viBtn');
+const viPanel = document.getElementById('viPanel');
+const viIframe = document.getElementById('viIframe');
+const viClose = document.getElementById('viClose');
+const footerHint = document.getElementById('footerHint');
+
+function scrollFeed() {
+  setTimeout(() => feed.scrollTop = feed.scrollHeight, 50);
+}
+
+function setStatus(text, color) {
+  callStatus.innerHTML = `<div class="dot" style="background:${color}"></div><span>${text}</span>`;
+  callStatus.style.background = `${color}22`;
+  callStatus.style.color = color;
+}
+
+function addMessage(role, text) {
+  const isUser = role === 'user';
+  const div = document.createElement('div');
+  div.className = `msg ${isUser ? 'user' : 'ai'}`;
+  if (isUser) {
+    div.innerHTML = `<div><div class="msg-label">You</div><div class="msg-bubble">${escHtml(text)}</div></div>`;
+  } else {
+    div.innerHTML = `
+      <div class="msg-avatar"><img src="/images/barista.png" alt="Olivia" /></div>
+      <div><div class="msg-label">Olivia</div><div class="msg-bubble">${escHtml(text)}</div></div>`;
+  }
+  feed.appendChild(div);
+  scrollFeed();
+}
+
+function addToolCard(data) {
+  const card = document.createElement('div');
+  card.className = 'tool-card';
+  if (data.tool === 'order') {
+    card.innerHTML = `
+      <div class="tool-icon">🛒</div>
+      <div>
+        <div class="tool-title">Order Placed</div>
+        <div class="tool-detail">${escHtml(String(data.item ?? ''))} ${data.size ? '· ' + escHtml(data.size) : ''}</div>
+        <div class="order-number-display">#${escHtml(String(data.orderNumber ?? 'N/A'))}</div>
+      </div>`;
+    markTask('task-order');
+  } else if (data.tool === 'swagQuestion') {
+    card.innerHTML = `
+      <div class="tool-icon">✅</div>
+      <div>
+        <div class="tool-title">Question Answered</div>
+        <div class="tool-detail">${escHtml(String(data.question ?? ''))}</div>
+      </div>`;
+    markTask('task-question');
+  } else if (data.tool === 'twilioQuestion') {
+    card.innerHTML = `
+      <div class="tool-icon">📱</div>
+      <div>
+        <div class="tool-title">Twilio Question Answered</div>
+        <div class="tool-detail">${escHtml(String(data.question ?? ''))}</div>
+      </div>`;
+    markTask('task-twilio');
+  } else if (data.tool === 'traitInferred') {
+    card.innerHTML = `
+      <div class="tool-icon">🏷️</div>
+      <div>
+        <div class="tool-title">Trait Inferred</div>
+        <div class="tool-detail">${escHtml(String(data.trait ?? ''))}</div>
+      </div>`;
+  }
+  feed.appendChild(card);
+  scrollFeed();
+}
+
+function addBookend(text) {
+  const div = document.createElement('div');
+  div.className = 'bookend';
+  div.textContent = text;
+  feed.appendChild(div);
+  scrollFeed();
+}
+
+function markTask(id) {
+  const el = document.getElementById(id);
+  if (!el || el.dataset.done === 'true') return;
+  el.dataset.done = 'true';
+  el.classList.add('done');
+  el.querySelector('.task-chip-check').textContent = '✓';
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function applyMemory(observations, summaries, userHasSpoken) {
+  const obsList = document.getElementById('observationsList');
+  const sumList = document.getElementById('summariesList');
+
+  if (!userHasSpoken) return; // keep skeletons until first user reply
+
+  const empty = `<div class="memory-empty">Nothing yet</div>`;
+  obsList.innerHTML = (observations?.length)
+    ? observations.map(o => `<div class="memory-item">${escHtml(o)}</div>`).join('')
+    : empty;
+  sumList.innerHTML = (summaries?.length)
+    ? summaries.map(s => `<div class="memory-item">${escHtml(s)}</div>`).join('')
+    : empty;
+}
+
+async function initSync() {
+  try {
+    const tokenRes = await fetch('/api/getSyncToken', { method: 'POST' });
+    const { token } = await tokenRes.json();
+    const syncClient = new Twilio.Sync.Client(token);
+    const map = await syncClient.map('callTracker');
+
+    const existing = await map.get(CALL_SID).catch(() => null);
+    if (existing) {
+      const d = existing.data;
+      applyStatus(d.status);
+      applyTaskState(d.tasks ?? {});
+      applyHistory(d.history ?? []);
+      applyViSid(d.viSid);
+      applyMemory(d.observations, d.summaries, (d.history ?? []).some(m => m.role === 'user'));
+    }
+
+    map.on('itemUpdated', ({ item }) => {
+      if (item.key !== CALL_SID) return;
+      applyStatus(item.data.status);
+      applyTaskState(item.data.tasks ?? {});
+      applyHistory(item.data.history ?? []);
+      applyViSid(item.data.viSid);
+      applyMemory(item.data.observations, item.data.summaries, (item.data.history ?? []).some(m => m.role === 'user'));
+    });
+  } catch (err) {
+    console.error('[initSync]', err);
+  }
+}
+
+function applyStatus(value) {
+  if (value === 'in-progress') {
+    setStatus('Live', 'var(--green)');
+    footerHint.textContent = '';
+  } else if (value === 'completed' && !callEnded) {
+    callEnded = true;
+    setStatus('Call ended', 'var(--muted)');
+    addBookend('📞 Call Ended');
+    setTimeout(() => { location.href = `/summary?callSid=${CALL_SID}`; }, 1500);
+  }
+}
+
+function applyTaskState(data) {
+  if (data.twilio_question_asked) markTask('task-twilio');
+  if (data.swag_question_asked) markTask('task-question');
+  if (data.swag_order_placed) markTask('task-order');
+}
+
+function applyHistory(messages) {
+  const newMessages = messages.slice(renderedMessageCount);
+  for (const m of newMessages) addMessage(m.role, m.text);
+  renderedMessageCount = messages.length;
+}
+
+function applyViSid(sid) {
+  if (!sid || viSid) return;
+  viSid = sid;
+  viBtn.style.display = 'inline-block';
+  footerHint.textContent = '';
+}
+
+viBtn.addEventListener('click', () => {
+  if (!viSid) return;
+  viPanel.classList.add('open');
+  feed.style.display = 'none';
+  viIframe.src = `https://intelligence.twilio.com/transcripts/${viSid}`;
+});
+viClose.addEventListener('click', () => {
+  viPanel.classList.remove('open');
+  feed.style.display = 'flex';
+  viIframe.src = 'about:blank';
+});
+</script>
+
+<script src="https://media.twiliocdn.com/sdk/js/sync/releases/3.0.1/twilio-sync.min.js"
+        onload="initSync()" onerror="console.error('Sync SDK failed to load')"></script>
+</body>
+</html>

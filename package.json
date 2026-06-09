@@ -2,11 +2,14 @@
 	"name": "tac-voice",
 	"version": "1.0.0",
 	"description": "Voice agent server with Twilio, OpenAI, and Twilio Agent Connect",
-	"main": "server.ts",
+	"main": "app/server.ts",
 	"type": "module",
 	"scripts": {
-		"start": "ts-node server.ts",
-		"dev": "ts-node --esm server.ts"
+		"start": "ts-node app/server.ts",
+		"dev": "ts-node --esm app/server.ts",
+		"backup": "ts-node scripts/backup-sync.ts",
+		"cleanup": "ts-node scripts/cleanup-orders.ts",
+		"test": "node --import ts-node/esm --test tests/test-*.ts"
 	},
 	"devDependencies": {
 		"@types/node": "^20.0.0",

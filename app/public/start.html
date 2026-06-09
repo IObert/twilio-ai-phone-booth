@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Twilio Cafe — Meet Olivia</title>
+<style>
+  :root {
+    --red: #F22F46;
+    --red-dark: #c0162b;
+    --red-glow: rgba(242,47,70,0.35);
+    --bg: #111114;
+    --panel: #1a1a1f;
+    --border: rgba(255,255,255,0.08);
+    --text: #ffffff;
+    --muted: #9995b3;
+    --radius: 20px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* ── HERO PHOTO ── */
+  .hero {
+    position: relative;
+    flex: 0 0 52vh;
+    overflow: hidden;
+  }
+  .hero img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 15%;
+    display: block;
+  }
+  /* gradient fade into bg */
+  .hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(17,17,20,0) 40%,
+      rgba(17,17,20,0.6) 75%,
+      rgba(17,17,20,1) 100%
+    );
+  }
+  /* Twilio Cafe label over photo */
+  .hero-brand {
+    position: absolute;
+    top: 28px;
+    left: 36px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .hero-brand-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--red);
+    box-shadow: 0 0 12px var(--red);
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%,100% { box-shadow: 0 0 8px var(--red); }
+    50% { box-shadow: 0 0 22px var(--red); }
+  }
+  .hero-brand-text {
+    font-size: clamp(18px, 2.5vw, 32px);
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #fff;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.6);
+  }
+
+  /* ── CONTENT ── */
+  .content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0 36px 36px;
+    gap: 28px;
+    overflow: hidden;
+  }
+
+  /* name + title */
+  .identity {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: -8px;
+  }
+  .identity-name {
+    font-size: clamp(44px, 6vw, 88px);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -1px;
+  }
+  .identity-role {
+    font-size: clamp(16px, 2vw, 28px);
+    color: var(--muted);
+    font-weight: 400;
+    letter-spacing: 0.5px;
+  }
+
+  /* cards */
+  .cards {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+  }
+  .card.optional {
+    border-style: dashed;
+  }
+  .card-icon {
+    font-size: clamp(26px, 3.5vw, 52px);
+    flex-shrink: 0;
+    width: clamp(50px, 6.5vw, 100px);
+    height: clamp(50px, 6.5vw, 100px);
+    background: rgba(255,255,255,0.05);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .card-body {}
+  .card-title {
+    font-size: clamp(16px, 2.2vw, 30px);
+    font-weight: 700;
+    margin-bottom: 3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-optional-tag {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    background: rgba(255,255,255,0.07);
+    padding: 2px 7px;
+    border-radius: 50px;
+  }
+  .card-desc {
+    font-size: clamp(13px, 1.6vw, 22px);
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  /* CTA */
+  .cta-area {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .btn-start {
+    background: var(--red);
+    border: none;
+    color: #fff;
+    font-size: clamp(24px, 3.5vw, 52px);
+    font-weight: 800;
+    padding: clamp(24px, 3vw, 44px);
+    border-radius: 18px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+    box-shadow: 0 8px 36px var(--red-glow);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-start:active { transform: scale(0.97); background: var(--red-dark); }
+  .btn-start:disabled { opacity: 0.45; transform: none; box-shadow: none; cursor: not-allowed; }
+  .status-msg {
+    min-height: 22px;
+    font-size: 15px;
+    color: #e8a838;
+    text-align: center;
+    transition: opacity 0.3s;
+  }
+  .status-msg.error { color: #ff4d6d; }
+
+  /* ── LAPTOP / LANDSCAPE (below TV height) ── */
+  @media (max-height: 1020px) and (orientation: landscape) {
+    body { flex-direction: row; }
+    .hero {
+      flex: 0 0 38%;
+      height: 100vh;
+    }
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 28px 28px;
+      gap: 16px;
+      justify-content: flex-start;
+    }
+    .identity-name { font-size: clamp(28px, 3vw, 48px); }
+    .cards { flex: none; gap: 10px; }
+    .card { flex: none; padding: 12px 16px; }
+    .card-icon {
+      width: clamp(40px, 5vw, 64px);
+      height: clamp(40px, 5vw, 64px);
+    }
+    .btn-start { font-size: clamp(18px, 2.2vw, 32px); padding: clamp(16px, 2vw, 28px); }
+    .phone-input { font-size: clamp(14px, 1.8vw, 22px); padding: clamp(12px, 1.4vw, 20px) 16px; }
+  }
+
+  /* ── ATTRACT OVERLAY ── */
+  #attractOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.82);
+    backdrop-filter: blur(12px);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 36px;
+  }
+  #attractOverlay.visible { display: flex; }
+  .attract-modal {
+    background: var(--panel);
+    border: 2px solid rgba(242,47,70,0.5);
+    border-radius: 28px;
+    padding: 56px 44px;
+    text-align: center;
+    width: 100%;
+    max-width: 500px;
+    box-shadow: 0 0 80px rgba(242,47,70,0.25);
+    animation: attractBounce 2s cubic-bezier(0.36,0.07,0.19,0.97) infinite;
+  }
+  .attract-phone { font-size: 80px; margin-bottom: 24px; line-height: 1; }
+  .attract-title {
+    font-size: 36px;
+    font-weight: 900;
+    margin-bottom: 14px;
+    line-height: 1.15;
+  }
+  .attract-sub {
+    font-size: 18px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 36px;
+  }
+  .attract-dismiss {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.18);
+    color: var(--muted);
+    font-size: 15px;
+    padding: 14px 32px;
+    border-radius: 50px;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  @keyframes attractBounce {
+    0%,100% { transform: translateY(0); }
+    15%      { transform: translateY(-16px); }
+    30%      { transform: translateY(0); }
+    45%      { transform: translateY(-8px); }
+    60%      { transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Hero photo -->
+<div class="hero">
+  <div class="hero-brand">
+    <div class="hero-brand-dot"></div>
+    <div class="hero-brand-text">%%BRAND_NAME%%</div>
+  </div>
+  <img src="%%BACKGROUND_IMAGE%%" alt="%%IMAGE_ALT%%" />
+</div>
+
+<!-- Content below photo -->
+<div class="content">
+
+  <div class="identity">
+    <div class="identity-name">%%HERO_TITLE%%</div>
+    <div class="identity-role">%%HERO_SUBTITLE%%</div>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-icon">%%CARDS_1_ICON%%</div>
+      <div class="card-body">
+        <div class="card-title">%%CARDS_1_TITLE%%</div>
+        <div class="card-desc">%%CARDS_1_DESCRIPTION%%</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-icon">%%CARDS_2_ICON%%</div>
+      <div class="card-body">
+        <div class="card-title">%%CARDS_2_TITLE%%</div>
+        <div class="card-desc">%%CARDS_2_DESCRIPTION%%</div>
+      </div>
+    </div>
+
+    <div class="card optional">
+      <div class="card-icon">%%CARDS_3_ICON%%</div>
+      <div class="card-body">
+        <div class="card-title">%%CARDS_3_TITLE%% %%CARDS_3_OPTIONAL_BADGE%%</div>
+        <div class="card-desc">%%CARDS_3_DESCRIPTION%%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta-area">
+    <button class="btn-start" id="startBtn">Tap to Start</button>
+    <div class="status-msg" id="statusMsg"></div>
+  </div>
+
+</div>
+
+<!-- Attract-mode popup -->
+<div id="attractOverlay">
+  <div class="attract-modal">
+    <div class="attract-phone">📞</div>
+    <div class="attract-title">%%ATTRACT_TITLE%%</div>
+    <div class="attract-sub">%%ATTRACT_SUBTITLE%%</div>
+    <button class="attract-dismiss" id="attractDismiss">Dismiss</button>
+  </div>
+</div>
+
+<script>
+  const btn = document.getElementById('startBtn');
+  const statusMsg = document.getElementById('statusMsg');
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    statusMsg.className = 'status-msg';
+    statusMsg.textContent = 'Starting call…';
+
+    try {
+      const res = await fetch('/api/startBoothCall', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Booth Guest', email: '' }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? 'Unknown error');
+
+      const callSid = data.callSid;
+      statusMsg.textContent = 'Ringing…';
+
+      const tokenRes = await fetch('/api/getSyncToken', { method: 'POST' });
+      const { token } = await tokenRes.json();
+      const syncClient = new Twilio.Sync.Client(token);
+      const map = await syncClient.map('callTracker');
+
+      const existing = await map.get(callSid).catch(() => null);
+      if (existing?.data?.status === 'in-progress') {
+        location.href = `/call?callSid=${callSid}`;
+        return;
+      }
+      if (existing?.data?.status === 'failed') {
+        showCallError();
+        return;
+      }
+
+      map.on('itemUpdated', ({ item }) => {
+        if (item.key !== callSid) return;
+        if (item.data.status === 'in-progress') {
+          location.href = `/call?callSid=${callSid}`;
+        } else if (item.data.status === 'failed') {
+          showCallError();
+        }
+      });
+    } catch (err) {
+      statusMsg.className = 'status-msg error';
+      statusMsg.textContent = `Error: ${err.message}`;
+      btn.disabled = false;
+    }
+  });
+
+  function showCallError() {
+    statusMsg.className = 'status-msg error';
+    statusMsg.textContent = "Sorry, the call couldn't connect. Please let a staff member know.";
+    btn.disabled = false;
+    btn.textContent = 'Try again';
+  }
+
+  // ── Attract mode ────────────────────────────────────────────────────────────
+  const ATTRACT_MODE = %%ATTRACT_MODE%%;
+  const ATTRACT_DEV  = %%ATTRACT_DEV%%;
+
+  if (ATTRACT_MODE || ATTRACT_DEV) {
+    const overlay = document.getElementById('attractOverlay');
+    const dismissBtn = document.getElementById('attractDismiss');
+    let attractFired = false;
+    let attractTimer = null;
+    let syncClient = null;
+
+    async function showAttractPopup() {
+      if (ATTRACT_DEV && attractFired) return;
+      attractFired = true;
+      overlay.classList.add('visible');
+
+      try {
+        const res = await fetch('/api/attractCall', { method: 'POST' });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error ?? 'Unknown error');
+        const callSid = data.callSid;
+
+        if (!syncClient) {
+          const tokenRes = await fetch('/api/getSyncToken', { method: 'POST' });
+          const { token } = await tokenRes.json();
+          syncClient = new Twilio.Sync.Client(token);
+        }
+        const map = await syncClient.map('callTracker');
+        map.on('itemUpdated', ({ item }) => {
+          if (item.key !== callSid) return;
+          if (item.data.status === 'in-progress') {
+            overlay.classList.remove('visible');
+            location.href = `/call?callSid=${callSid}`;
+          } else if (item.data.status === 'failed') {
+            overlay.classList.remove('visible');
+            showCallError();
+          }
+        });
+      } catch (err) {
+        console.error('[attract] attractCall failed:', err);
+        overlay.classList.remove('visible');
+      }
+    }
+
+    function scheduleNext() {
+      if (ATTRACT_DEV) return;
+      const delay = (5 + Math.random() * 5) * 60 * 1000;
+      attractTimer = setTimeout(() => { showAttractPopup(); scheduleNext(); }, delay);
+    }
+
+    function resetAttractTimer() {
+      clearTimeout(attractTimer);
+      scheduleNext();
+    }
+
+    dismissBtn.addEventListener('click', () => {
+      overlay.classList.remove('visible');
+      resetAttractTimer();
+    });
+
+    ['touchstart', 'mousedown', 'keydown'].forEach(evt =>
+      document.addEventListener(evt, resetAttractTimer, { passive: true })
+    );
+
+    if (ATTRACT_DEV) {
+      setTimeout(showAttractPopup, 20_000);
+    } else {
+      scheduleNext();
+    }
+  }
+</script>
+<script src="https://media.twiliocdn.com/sdk/js/sync/releases/3.0.1/twilio-sync.min.js"></script>
+</body>
+</html>

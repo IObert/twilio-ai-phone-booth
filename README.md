@@ -15,10 +15,14 @@ An AI voice agent for phone calls powered by [Twilio Agent Connect (TAC)](https:
 
 | File | Responsibility |
 |------|----------------|
-| [server.ts](server.ts) | Fastify HTTP/WebSocket server, TAC initialization, static file serving |
-| [agent.ts](agent.ts) | OpenAI Responses API streaming, session state, tool execution |
-| [frontend.ts](frontend.ts) | API routes, Sync token generation, Conversation Intelligence callback, stats dashboard |
-| [public/](public/) | Static HTML pages for the booth UI |
+| [server.ts](app/server.ts) | Fastify HTTP/WebSocket server, TAC initialization, static file serving |
+| [agent.ts](app/agent.ts) | OpenAI Responses API streaming, session state, tool execution |
+| [frontend.ts](app/frontend.ts) | API routes, Sync token generation, Conversation Intelligence callback, stats dashboard |
+| [public/](app/public/) | Static HTML pages for the booth UI |
+| [sync.ts](app/sync.ts) | Twilio Sync operations (inventory, orders, call tracking) |
+| [config.ts](app/config.ts) | Agent persona, system prompts, model settings, UI configuration |
+| [scripts/](scripts/) | Backup and cleanup utilities for Sync data |
+| [tests/](tests/) | Node.js test suite for inventory validation |
 
 ---
 
@@ -123,6 +127,7 @@ Deploy to any platform that provides a public HTTPS URL (Fly.io, Railway, Render
 | `TWILIO_TAC_CI_CONFIGURATION_ID` | TAC CI config SID |
 | `SIP_PHONE_ADDRESS` | SIP URI for the booth phone |
 | `OPENAI_API_KEY` | OpenAI API key |
+| `TWILIO_TAC_KNOWLEDGE_BASE_ID` | Knowledge base SID (`know_knowledgebase_...`) for lookups (optional) |
 | `STATS_USER` / `STATS_PASS` | Basic auth for the `/stats` dashboard |
 
 Start command: `pnpm start`
@@ -144,9 +149,11 @@ Any interaction with the page (mouse move, keypress, touch) resets the idle time
 
 | Tool | What it does |
 |------|-------------|
-| `complete_coffee_question` | Logs an answered coffee question to the backend |
-| `submit_order` | Places a coffee order and returns an order number |
-| `end_call` | Hangs up the call via Twilio |
+| `submit_swag_order` | Places a swag order with inventory/size validation, returns order number (one per call limit) |
+| `complete_swag_question` | Marks swag question task complete after answering questions about available items |
+| `complete_twilio_question` | Marks Twilio product question task complete after answering about Twilio APIs/features |
+| `search_<knowledge_base>` | Searches Twilio knowledge base (injected at startup if `TWILIO_TAC_KNOWLEDGE_BASE_ID` is set) |
+| `end_call` | Hangs up the call via Twilio (plays farewell, then terminates after 3s) |
 
 ## Stats dashboard
 
