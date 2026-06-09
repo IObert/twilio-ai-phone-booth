@@ -91,6 +91,7 @@ export async function getInventoryDoc() {
  */
 export function getDefaultInventory() {
   return {
+    sipPhoneAddress: process.env.SIP_PHONE_ADDRESS || "",
     items: [
       { name: "Notebook", enabled: false, hasSize: false, stock: 0 },
       { name: "Pen", enabled: false, hasSize: false, stock: 0 },

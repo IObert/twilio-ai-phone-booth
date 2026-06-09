@@ -76,9 +76,23 @@ function getPublicBaseUrl(req: FastifyRequest): string {
   return `${proto}://${host}`;
 }
 
-async function initiateCall(ngrokBase: string): Promise<string> {
+async function initiateCall(ngrokBase: string, phoneNumber?: string): Promise<string> {
   const client = getTwilio();
-  const sipAddress = process.env.SIP_PHONE_ADDRESS!;
+
+  // Priority: custom phoneNumber > inventory sipPhoneAddress > env SIP_PHONE_ADDRESS
+  let sipAddress = phoneNumber;
+
+  if (!sipAddress) {
+    try {
+      const inventoryDoc = await getInventoryDoc();
+      const inventoryData = inventoryDoc.data as any;
+      sipAddress = inventoryData.sipPhoneAddress || process.env.SIP_PHONE_ADDRESS!;
+    } catch (err) {
+      console.error("[initiateCall] Failed to load sipPhoneAddress from inventory, using env:", err);
+      sipAddress = process.env.SIP_PHONE_ADDRESS!;
+    }
+  }
+
   const from = process.env.TWILIO_PHONE_NUMBER!;
 
   const call = await client.calls.create({
@@ -207,9 +221,10 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
   // ── POST /api/startBoothCall ───────────────────────────────────────────────
   app.post("/api/startBoothCall", async (req, reply) => {
     const ngrokBase = getPublicBaseUrl(req);
+    const body = req.body as { phoneNumber?: string } ?? {};
 
     try {
-      const callSid = await initiateCall(ngrokBase);
+      const callSid = await initiateCall(ngrokBase, body.phoneNumber);
       await seedCallTracker(callSid);
       return { success: true, callSid };
     } catch (err) {
@@ -280,7 +295,7 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
     const ngrokBase = getPublicBaseUrl(req);
 
     try {
-      const callSid = await initiateCall(ngrokBase);
+      const callSid = await initiateCall(ngrokBase); // Always use default SIP for attract mode
       await seedCallTracker(callSid);
       return { success: true, callSid };
     } catch (err) {

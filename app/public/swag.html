@@ -546,6 +546,23 @@
   <!-- Inventory Tab -->
   <div class="tab-content" id="inventoryTab">
     <div class="panel">
+      <div class="section-label">Default SIP Phone Address</div>
+      <div style="margin-bottom: 24px;">
+        <input
+          type="text"
+          id="sipPhoneInput"
+          class="item-name-input"
+          placeholder="+1234567890 or sip:booth@example.com"
+          style="width: 100%; max-width: 500px;"
+          oninput="updateSipPhone(this.value)"
+        />
+        <div style="margin-top: 8px; font-size: 13px; color: var(--muted);">
+          This is the default phone number or SIP address that will be called. Users can override this on the start page.
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
       <div class="section-label">Available Items</div>
       <div id="inventoryContainer">
         <div class="loading-state">Loading inventory…</div>
@@ -781,6 +798,12 @@ async function loadInventory() {
 function renderInventory() {
   if (!inventory) return;
 
+  // Render SIP phone input
+  const sipPhoneInput = document.getElementById('sipPhoneInput');
+  if (sipPhoneInput) {
+    sipPhoneInput.value = inventory.sipPhoneAddress || '';
+  }
+
   // Calculate orders given out for each item
   const orderCounts = {};
   const orderCountsBySize = {};
@@ -923,6 +946,11 @@ function updateStock(index, value) {
 function updateSizeStock(itemIndex, sizeIndex, value) {
   const stock = parseInt(value, 10) || 0;
   inventory.items[itemIndex].sizeStock[sizeIndex].stock = stock;
+  markInventoryChanged();
+}
+
+function updateSipPhone(value) {
+  inventory.sipPhoneAddress = value;
   markInventoryChanged();
 }
 
