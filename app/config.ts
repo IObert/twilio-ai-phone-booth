@@ -214,7 +214,7 @@ export const UI_CONFIG = {
 
   /** Attract mode popup */
   attractMode: {
-    title: "Pick up to talk<br/>to our AI",
+    title: "Pick up the phone<br/>to get started",
     subtitle: `Chat with ${AGENT_CONFIG.name} — ask about Twilio products or order swag!`,
   },
 
