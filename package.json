@@ -6,7 +6,8 @@
 	"type": "module",
 	"scripts": {
 		"start": "ts-node server.ts",
-		"dev": "ts-node --esm server.ts"
+		"dev": "ts-node --esm server.ts",
+		"reset-stats": "ts-node --esm scripts/reset-stats.ts"
 	},
 	"devDependencies": {
 		"@types/node": "^20.0.0",
