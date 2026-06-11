@@ -454,7 +454,7 @@
 
     function scheduleNext() {
       if (ATTRACT_DEV) return;
-      const delay = (5 + Math.random() * 5) * 60 * 1000;
+      const delay = (10 + Math.random() * 5) * 60 * 1000;
       attractTimer = setTimeout(() => { showAttractPopup(); scheduleNext(); }, delay);
     }
 
