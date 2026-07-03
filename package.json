@@ -5,7 +5,7 @@
 	"main": "server.ts",
 	"type": "module",
 	"scripts": {
-		"start": "ts-node server.ts",
+		"start": "node --loader ts-node/esm --no-warnings server.ts",
 		"dev": "ts-node --esm server.ts",
 		"reset-stats": "ts-node --esm scripts/reset-stats.ts"
 	},

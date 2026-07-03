@@ -1,0 +1,11 @@
+services:
+  ai-phone-booth:
+    build:
+      context: .
+    image: ${IMAGE_NAME:-ai-phone-booth}
+    container_name: ${CONTAINER_NAME:-ai-phone-booth}
+    env_file:
+      - ${ENV_FILE:-.env.local}
+    ports:
+      - "${HOST_PORT:-8000}:8000"
+    restart: unless-stopped
