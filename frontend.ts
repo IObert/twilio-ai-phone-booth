@@ -18,6 +18,17 @@ function serveTemplated(file: string, vars: Record<string, string>): string {
   return html;
 }
 
+function buildHeader(heroImage: string, roleLabel: string, venueLabel: string, rightSlot: string, linked = false): string {
+  return serveTemplated("_header.html", {
+    HERO_IMAGE:        heroImage,
+    ROLE_LABEL:        roleLabel,
+    VENUE_LABEL:       venueLabel,
+    HEADER_RIGHT:      rightSlot,
+    HEADER_LINK_START: linked ? `<a href="/start" style="display:flex;align-items:center;gap:14px;text-decoration:none;color:inherit;">` : "",
+    HEADER_LINK_END:   linked ? `</a>` : "",
+  });
+}
+
 // ─── types ────────────────────────────────────────────────────────────────────
 
 interface OperatorResult {
@@ -66,8 +77,11 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
 
   // ── Clean HTML routes ─────────────────────────────────────────────────────
   app.get("/", (_, reply) => reply.redirect("/start"));
+
+  const heroImage     = drinkLabel === "smoothie" ? "smoothie.png" : "barista.png";
+  const drinkLabelCap = drinkLabel.charAt(0).toUpperCase() + drinkLabel.slice(1);
+
   app.get("/start", (_, reply) => {
-    const drinkLabelCap = drinkLabel.charAt(0).toUpperCase() + drinkLabel.slice(1);
     const html = serveTemplated("start.html", {
       ATTRACT_MODE:    process.env.ATTRACT_MODE === "true" ? "true" : "false",
       ATTRACT_DEV:     process.env.ATTRACT_DEV  === "true" ? "true" : "false",
@@ -77,21 +91,27 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
       DRINK_ICON:      drinkIcon,
       ROLE_LABEL:      roleLabel,
       MENU_SUMMARY:    menuNames.slice(0, 5).join(", ") + (menuNames.length > 5 ? " and more" : ""),
-      HERO_IMAGE:      drinkLabel === "smoothie" ? "smoothie.png" : "barista.png",
+      HERO_IMAGE:      heroImage,
     });
     reply.type("text/html").send(html);
   });
   app.get("/call", (_, reply) => {
-    const drinkLabelCap = drinkLabel.charAt(0).toUpperCase() + drinkLabel.slice(1);
+    const header = buildHeader(heroImage, roleLabel, venueLabel,
+      `<div class="header-badge" id="callStatus"><div class="dot"></div><span>Connecting…</span></div>`);
     const html = serveTemplated("call.html", {
+      HEADER:          header,
       VENUE_LABEL:     venueLabel,
       DRINK_LABEL_CAP: drinkLabelCap,
-      ROLE_LABEL:      roleLabel,
-      HERO_IMAGE:      drinkLabel === "smoothie" ? "smoothie.png" : "barista.png",
+      HERO_IMAGE:      heroImage,
     });
     reply.type("text/html").send(html);
   });
-  app.get("/summary", (_, reply) => reply.sendFile("summary.html"));
+  app.get("/summary", (_, reply) => {
+    const header = buildHeader(heroImage, roleLabel, venueLabel,
+      `<div class="header-done">✓ Call complete</div>`, true);
+    const html = serveTemplated("summary.html", { HEADER: header, VENUE_LABEL: venueLabel });
+    reply.type("text/html").send(html);
+  });
 
   // ── GET /intelligence-results (health check) ─────────────────────────────
   app.get("/intelligence-results", (_, reply) => {
