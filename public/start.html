@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Twilio Cafe — Meet Olivia</title>
+<title>%%VENUE_LABEL%% — Meet Olivia</title>
 <style>
   :root {
     --red: #F22F46;
@@ -294,9 +294,9 @@
 <div class="hero">
   <div class="hero-brand">
     <div class="hero-brand-dot"></div>
-    <div class="hero-brand-text">Twilio Cafe</div>
+    <div class="hero-brand-text">%%VENUE_LABEL%%</div>
   </div>
-  <img src="/barista.png" alt="Olivia — AI Barista" />
+  <img src="/%%HERO_IMAGE%%" alt="Olivia — AI %%ROLE_LABEL%%" />
 </div>
 
 <!-- Content below photo -->
@@ -304,15 +304,15 @@
 
   <div class="identity">
     <div class="identity-name">Meet Olivia</div>
-    <div class="identity-role">Your AI Barista — powered by Twilio</div>
+    <div class="identity-role">Your AI %%ROLE_LABEL%% — powered by Twilio</div>
   </div>
 
   <div class="cards">
     <div class="card">
       <div class="card-icon">💬</div>
       <div class="card-body">
-        <div class="card-title">Ask a coffee question</div>
-        <div class="card-desc">Espresso vs americano? Brewing methods? Olivia knows it all.</div>
+        <div class="card-title">Ask a %%DRINK_LABEL%% question</div>
+        <div class="card-desc">Curious about ingredients or how something is made? Olivia knows it all.</div>
       </div>
     </div>
 
@@ -325,10 +325,10 @@
     </div>
 
     <div class="card optional">
-      <div class="card-icon">☕</div>
+      <div class="card-icon">%%DRINK_ICON%%</div>
       <div class="card-body">
-        <div class="card-title">Place a coffee order <span class="card-optional-tag">Optional</span></div>
-        <div class="card-desc">Espresso, Cortado, Latte, Cappuccino, Flat White and more.</div>
+        <div class="card-title">Place a %%DRINK_LABEL%% order <span class="card-optional-tag">Optional</span></div>
+        <div class="card-desc">%%MENU_SUMMARY%%.</div>
       </div>
     </div>
   </div>
@@ -345,7 +345,7 @@
   <div class="attract-modal">
     <div class="attract-phone">📞</div>
     <div class="attract-title">Pick up to talk<br/>to our AI</div>
-    <div class="attract-sub">Chat with Olivia — ask about Guinness pint prices across the UK, or ask a coffee question.</div>
+    <div class="attract-sub">Chat with Olivia — ask about Guinness pint prices across the UK, or ask a %%DRINK_LABEL%% question.</div>
     <button class="attract-dismiss" id="attractDismiss">Dismiss</button>
   </div>
 </div>

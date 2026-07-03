@@ -12,6 +12,46 @@ const twilioClient = twilio(process.env.TWILIO_API_KEY, process.env.TWILIO_API_S
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 const BASE_URL = `http://localhost:${process.env.PORT ?? 8000}/api/beans`;
 
+// ── Drink-type / menu config ───────────────────────────────────────────────────
+
+const DRINK_TYPE = (process.env.DRINK_TYPE ?? "coffee").toLowerCase();
+const isSmoothie = DRINK_TYPE === "smoothie";
+
+function parseMenuItems(raw: string): { name: string; description: string }[] {
+  const entries: string[] = [];
+  let depth = 0, start = 0;
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i] === "(") depth++;
+    else if (raw[i] === ")") depth--;
+    else if (raw[i] === "," && depth === 0) {
+      entries.push(raw.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  entries.push(raw.slice(start).trim());
+  return entries
+    .map((entry) => {
+      const p = entry.indexOf("(");
+      return p === -1
+        ? { name: entry, description: "" }
+        : { name: entry.slice(0, p).trim(), description: entry.slice(p + 1, entry.lastIndexOf(")")).trim() };
+    })
+    .filter((i) => i.name);
+}
+
+const DEFAULT_COFFEE_MENU = "Espresso,Cortado,Cappuccino,Flat White,Americano,Matcha Latte,Cold Brew,Iced Matcha,Iced Latte";
+const DEFAULT_SMOOTHIE_MENU = "Macarena(Strawberry, Pineapple, Apple, Passion Fruit, Goji, Vanilla),La Isla Bonita(Pineapple, Banana, Coconut Milk, Dates, Blue Spirulina),Calma(Mango, Pineapple, Spinach, Banana, Almonds, Ginger, Lemon)";
+
+const menuItems = parseMenuItems(process.env.MENU_ITEMS ?? (isSmoothie ? DEFAULT_SMOOTHIE_MENU : DEFAULT_COFFEE_MENU));
+export const menuNames = menuItems.map((i) => i.name);
+const menuForPrompt = menuItems.map((i) => i.description ? `${i.name} (${i.description})` : i.name).join(", ");
+
+export const drinkLabel = DRINK_TYPE;
+const drinkLabelUp = DRINK_TYPE.toUpperCase();
+export const venueLabel = isSmoothie ? "Smoothie Bar" : "Twilio Cafe";
+export const roleLabel = isSmoothie ? "Smoothie Bartender" : "Barista";
+export const drinkIcon = isSmoothie ? "🍹" : "☕";
+
 let knowledgeSearchImpl: ((args: { query: string }) => Promise<unknown>) | null = null;
 let knowledgeToolName: string | null = null;
 
@@ -38,22 +78,26 @@ async function appendSyncHistory(callSid: string, role: "user" | "ai", text: str
     });
 }
 
-export const WELCOME_GREETING = "Welcome to Twilio SIGNAL Berlin! I'm Olivia. I can tell you all about Guinness pint prices across the UK, or help you with a coffee question. What's on your mind?";
+const eventDisplayName = process.env.EVENT_DISPLAY_NAME?.trim() || null;
 
-const SYSTEM_INSTRUCTIONS = `You are Olivia, a friendly AI barista at Twilio Cafe during Twilio SIGNAL World Tour Berlin 2026. You are talking to customers over the phone.
+export const WELCOME_GREETING = eventDisplayName
+  ? `Welcome to ${eventDisplayName}! I'm Olivia. I can tell you all about Guinness pint prices across the UK, or help you with a ${drinkLabel} question. What's on your mind?`
+  : `Hi, I'm Olivia. I can tell you all about Guinness pint prices across the UK, or help you with a ${drinkLabel} question. What's on your mind?`;
+
+const SYSTEM_INSTRUCTIONS = `You are Olivia, a friendly AI ${roleLabel} at ${venueLabel}${eventDisplayName ? ` during ${eventDisplayName}` : ""}. You are talking to customers over the phone.
 
 CRITICAL — PHONE CALL RULES:
 - Never use markdown, bullet points, headers, or lists. Plain spoken sentences only.
 - Keep every response short — 1 to 2 sentences maximum. This is a phone call, not a chat.
 - No filler phrases like "Great choice!" or "Absolutely!". Get to the point.
 
-You can help customers with two things — a Guinndex pint price question and a coffee question — plus optionally take a coffee order. Do not push them to do any of these. If someone seems unsure what to do, you can gently mention they can ask about Guinness pint prices across the UK, ask a coffee question, or order a coffee.
+You can help customers with two things — a Guinndex pint price question and a ${drinkLabel} question — plus optionally take a ${drinkLabel} order. Do not push them to do any of these. If someone seems unsure what to do, you can gently mention they can ask about Guinness pint prices across the UK, ask a ${drinkLabel} question, or order a ${drinkLabel}.
 
 GUINNDEX PINT PRICES: The Guinndex (guinndex.co.uk) is an AI-powered survey of Guinness pint prices across UK pubs, covering over 6,700 pubs in England, Scotland, Wales, and Northern Ireland. If someone asks what the Guinndex is, explain this briefly in one sentence. You can answer questions about pint prices — cheapest, dearest, average, biggest price gaps, and comparisons between places. If someone asks about a country or region outside the UK, let them know the Guinndex currently only covers the UK. If you search the knowledge base and cannot find the answer, tell the customer you only have access to a snapshot of the data and recommend they check out the full project at guinndex.co.uk for more details. After answering a Guinndex question, call complete_guindex_question.
 
-COFFEE QUESTION: Answer any question the customer has about coffee — types, brewing methods, menu items, preferences. After answering, call complete_coffee_question.
+${drinkLabelUp} QUESTION: Answer any question the customer has about ${drinkLabel}s — types, ingredients, menu items, preferences. After answering, call complete_drink_question.
 
-COFFEE ORDER (optional): If the customer wants to order, great. Menu: Espresso, Cortado, Cappuccino, Flat White, Americano, Matcha Latte, Cold Brew, Iced Matcha, Iced Latte. Oat milk and organic dairy milk available. Once confirmed, call submit_order and read back the order number. Never push the customer to order.
+${drinkLabelUp} ORDER (optional): If the customer wants to order, great. Menu: ${menuForPrompt}. Once confirmed, call submit_order and read back the order number. Never push the customer to order.
 
 For anything about Twilio products or pricing, tell them to ask at the Twilio booth.
 
@@ -62,9 +106,9 @@ Keep personal details the customer shares in mind — name, preferences — for 
 const tools: object[] = [
   {
     type: "function",
-    name: "complete_coffee_question",
+    name: "complete_drink_question",
     description:
-      "Marks the coffee question task as complete after answering a customer's question about coffee types, brewing methods, or coffee-related topics. Call this after providing an answer to any coffee question.",
+      `Marks the ${drinkLabel} question task as complete after answering a customer's question about ${drinkLabel} types, ingredients, or ${drinkLabel}-related topics. Call this after providing an answer to any ${drinkLabel} question.`,
     parameters: {
       type: "object",
       properties: { question: { type: "string" } },
@@ -75,16 +119,16 @@ const tools: object[] = [
     type: "function",
     name: "submit_order",
     description:
-      "Submit a coffee order for the user. Returns an order number — you must communicate this to the user. If the call fails, apologize and inform the user.",
+      `Submit a ${drinkLabel} order for the user. Returns an order number — you must communicate this to the user. If the call fails, apologize and inform the user.`,
     parameters: {
       type: "object",
       properties: {
         originalMessage: { type: "string" },
         item: {
           type: "string",
-          enum: ["Espresso", "Cortado", "Cappuccino", "Flat White", "Americano", "Matcha Latte", "Cold Brew", "Iced Matcha", "Iced Latte"],
+          enum: menuNames,
         },
-        modifiers: { type: "array", items: { type: "string", enum: ["Milk", "Oat Milk"] } },
+        modifiers: { type: "array", items: { type: "string" } },
       },
       required: ["originalMessage", "item", "modifiers"],
     },
@@ -121,7 +165,7 @@ if (knowledgeSearchImpl && knowledgeToolName) {
 }
 
 const TOOL_URLS: Record<string, string> = {
-  complete_coffee_question: `${BASE_URL}/coffeeQuestions`,
+  complete_drink_question: `${BASE_URL}/drinkQuestions`,
   submit_order: `${BASE_URL}/order`,
   complete_guindex_question: `${BASE_URL}/guindexQuestion`,
 };

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Twilio Cafe — Stats Dashboard</title>
+<title>Twilio Stats Dashboard</title>
 <style>
   :root {
     --bg: #0d0d12;
@@ -182,9 +182,9 @@
 <div class="blob blob-2"></div>
 
 <header>
-  <div class="header-icon">☕</div>
+  <div class="header-icon" id="headerIcon">…</div>
   <div>
-    <div class="header-title">Twilio Cafe — Olivia</div>
+    <div class="header-title" id="headerTitle">Twilio — Olivia</div>
     <div class="header-sub">Stats Dashboard</div>
   </div>
   <button class="refresh-btn" onclick="loadStats()">↻ Refresh</button>
@@ -232,14 +232,20 @@ async function loadStats() {
   if (!res.ok) { document.getElementById('kpiGrid').innerHTML = '<div class="loading-state">Failed to load stats.</div>'; return; }
   const d = await res.json();
 
+  // Update header icon and title based on drink type
+  const dl = d.drinkLabel ?? 'drink';
+  const dlCap = dl.charAt(0).toUpperCase() + dl.slice(1);
+  document.getElementById('headerIcon').textContent = dl === 'smoothie' ? '🍹' : '☕';
+  document.getElementById('headerTitle').textContent = `Twilio — Olivia (${dlCap}s)`;
+
   // KPI cards
   const kpis = [
-    { label: 'Total Calls',         value: d.total,                           unit: 'calls' },
-    { label: 'Order Rate',          value: pct(d.orderRate),                  unit: 'placed an order' },
-    { label: 'Question Rate',       value: pct(d.questionRate),               unit: 'asked a question' },
-    { label: 'Both Tasks Completed',value: pct(d.bothRate),                   unit: 'completed both tasks' },
-    { label: 'Avg. Messages / Call', value: d.avgMessages.toFixed(1),         unit: 'messages' },
-    { label: 'Avg. Call Duration',  value: fmt(d.avgDuration),                unit: 'per completed call' },
+    { label: 'Total Calls',              value: d.total,                  unit: 'calls' },
+    { label: `${dlCap} Order Rate`,      value: pct(d.orderRate),         unit: `placed a ${dl} order` },
+    { label: `${dlCap} Question Rate`,   value: pct(d.questionRate),      unit: `asked a ${dl} question` },
+    { label: 'Both Tasks Completed',     value: pct(d.bothRate),          unit: 'completed both tasks' },
+    { label: 'Avg. Messages / Call',     value: d.avgMessages.toFixed(1), unit: 'messages' },
+    { label: 'Avg. Call Duration',       value: fmt(d.avgDuration),       unit: 'per completed call' },
   ];
 
   document.getElementById('kpiGrid').innerHTML = kpis.map(k => `

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Twilio Cafe — Live Call</title>
+<title>%%VENUE_LABEL%% — Live Call</title>
 <style>
   :root {
     --red: #F22F46;
@@ -314,11 +314,11 @@
 
 <header>
   <div class="header-avatar">
-    <img src="/barista.png" alt="Olivia" />
+    <img src="/%%HERO_IMAGE%%" alt="Olivia" />
   </div>
   <div>
-    <div class="header-brand">Olivia — AI Barista</div>
-    <div class="header-sub">Twilio Cafe</div>
+    <div class="header-brand">Olivia — AI %%ROLE_LABEL%%</div>
+    <div class="header-sub">%%VENUE_LABEL%%</div>
   </div>
   <div class="header-badge" id="callStatus">
     <div class="dot"></div>
@@ -329,7 +329,7 @@
 <div class="tasks-bar">
   <div class="task-chip" id="task-question">
     <div class="task-chip-check"></div>
-    <div>Coffee question</div>
+    <div>%%DRINK_LABEL_CAP%% question</div>
   </div>
   <div class="task-chip" id="task-guindex">
     <div class="task-chip-check"></div>
@@ -337,7 +337,7 @@
   </div>
   <div class="task-chip" id="task-order">
     <div class="task-chip-check"></div>
-    <div>Coffee order</div>
+    <div>%%DRINK_LABEL_CAP%% order</div>
   </div>
 </div>
 
@@ -409,7 +409,7 @@ function addMessage(role, text) {
     div.innerHTML = `<div><div class="msg-label">You</div><div class="msg-bubble">${escHtml(text)}</div></div>`;
   } else {
     div.innerHTML = `
-      <div class="msg-avatar"><img src="/barista.png" alt="Olivia" /></div>
+      <div class="msg-avatar"><img src="/%%HERO_IMAGE%%" alt="Olivia" /></div>
       <div><div class="msg-label">Olivia</div><div class="msg-bubble">${escHtml(text)}</div></div>`;
   }
   feed.appendChild(div);
@@ -428,7 +428,7 @@ function addToolCard(data) {
         <div class="tool-detail">Order #${escHtml(String(data.orderNumber ?? ''))}</div>
       </div>`;
     markTask('task-order');
-  } else if (data.tool === 'coffeeQuestion') {
+  } else if (data.tool === 'drinkQuestion') {
     card.innerHTML = `
       <div class="tool-icon">✅</div>
       <div>
@@ -534,8 +534,8 @@ function applyStatus(value) {
 }
 
 function applyTaskState(data) {
-  if (data.coffee_question_asked) markTask('task-question');
-  if (data.coffee_order_placed)   markTask('task-order');
+  if (data.drink_question_asked) markTask('task-question');
+  if (data.order_placed)         markTask('task-order');
   if (data.guindex_question_asked) markTask('task-guindex');
 }
 

@@ -8,7 +8,7 @@ import { fileURLToPath } from "url";
 import { join, dirname } from "path";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import twilio from "twilio";
-import { WELCOME_GREETING } from "./agent.ts";
+import { WELCOME_GREETING, drinkLabel, drinkIcon, venueLabel, roleLabel, menuNames } from "./agent.ts";
 import { updateCallTracker, getSyncItem, SYNC_MAP_NAME, SYNC_ITEM_TTL, type CallTrackerItem, type CintelSummary } from "./sync.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -55,7 +55,7 @@ function requireBasicAuth(req: FastifyRequest, reply: FastifyReply): boolean {
   }
   reply
     .code(401)
-    .header("WWW-Authenticate", 'Basic realm="Twilio Cafe Stats"')
+    .header("WWW-Authenticate", 'Basic realm="Twilio Stats"')
     .send("Unauthorized");
   return false;
 }
@@ -67,13 +67,30 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
   // ── Clean HTML routes ─────────────────────────────────────────────────────
   app.get("/", (_, reply) => reply.redirect("/start"));
   app.get("/start", (_, reply) => {
+    const drinkLabelCap = drinkLabel.charAt(0).toUpperCase() + drinkLabel.slice(1);
     const html = serveTemplated("start.html", {
-      ATTRACT_MODE: process.env.ATTRACT_MODE === "true" ? "true" : "false",
-      ATTRACT_DEV:  process.env.ATTRACT_DEV  === "true" ? "true" : "false",
+      ATTRACT_MODE:    process.env.ATTRACT_MODE === "true" ? "true" : "false",
+      ATTRACT_DEV:     process.env.ATTRACT_DEV  === "true" ? "true" : "false",
+      VENUE_LABEL:     venueLabel,
+      DRINK_LABEL:     drinkLabel,
+      DRINK_LABEL_CAP: drinkLabelCap,
+      DRINK_ICON:      drinkIcon,
+      ROLE_LABEL:      roleLabel,
+      MENU_SUMMARY:    menuNames.slice(0, 5).join(", ") + (menuNames.length > 5 ? " and more" : ""),
+      HERO_IMAGE:      drinkLabel === "smoothie" ? "smoothie.png" : "barista.png",
     });
     reply.type("text/html").send(html);
   });
-  app.get("/call", (_, reply) => reply.sendFile("call.html"));
+  app.get("/call", (_, reply) => {
+    const drinkLabelCap = drinkLabel.charAt(0).toUpperCase() + drinkLabel.slice(1);
+    const html = serveTemplated("call.html", {
+      VENUE_LABEL:     venueLabel,
+      DRINK_LABEL_CAP: drinkLabelCap,
+      ROLE_LABEL:      roleLabel,
+      HERO_IMAGE:      drinkLabel === "smoothie" ? "smoothie.png" : "barista.png",
+    });
+    reply.type("text/html").send(html);
+  });
   app.get("/summary", (_, reply) => reply.sendFile("summary.html"));
 
   // ── POST /intelligence-results (Conversation Intelligence results) ─────────────
@@ -138,7 +155,7 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
           ttl: SYNC_ITEM_TTL,
           data: {
             status: "calling",
-            tasks: { coffee_order_placed: false, coffee_question_asked: false, guindex_question_asked: false },
+            tasks: { order_placed: false, drink_question_asked: false, guindex_question_asked: false },
             history: [{ role: "ai", text: WELCOME_GREETING }],
           } satisfies CallTrackerItem,
         });
@@ -242,7 +259,7 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
           ttl: SYNC_ITEM_TTL,
           data: {
             status: "calling",
-            tasks: { coffee_order_placed: false, coffee_question_asked: false, guindex_question_asked: false },
+            tasks: { order_placed: false, drink_question_asked: false, guindex_question_asked: false },
             history: [{ role: "ai", text: WELCOME_GREETING }],
           } satisfies CallTrackerItem,
         });
@@ -253,12 +270,12 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
     return { success: true, callSid };
   });
 
-  // ── POST /api/beans/coffeeQuestions (AI tool callback) ────────────────────
-  app.post("/api/beans/coffeeQuestions", async (req) => {
+  // ── POST /api/beans/drinkQuestions (AI tool callback) ────────────────────
+  app.post("/api/beans/drinkQuestions", async (req) => {
     const callSid = (req.headers as Record<string, string>)["x-call-sid"] ?? "";
     const item = await getSyncItem(callSid).fetch();
     const current = item.data as CallTrackerItem;
-    await updateCallTracker(callSid, { tasks: { ...current.tasks, coffee_question_asked: true } });
+    await updateCallTracker(callSid, { tasks: { ...current.tasks, drink_question_asked: true } });
     return { ok: true };
   });
 
@@ -291,9 +308,9 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
     const total = items.length;
     const completed = items.filter(i => i.status === "completed");
 
-    const orderRate      = total ? items.filter(i => i.tasks?.coffee_order_placed).length    / total : 0;
-    const questionRate   = total ? items.filter(i => i.tasks?.coffee_question_asked).length  / total : 0;
-    const bothRate       = total ? items.filter(i => i.tasks?.coffee_order_placed && i.tasks?.coffee_question_asked).length / total : 0;
+    const orderRate      = total ? items.filter(i => i.tasks?.order_placed).length    / total : 0;
+    const questionRate   = total ? items.filter(i => i.tasks?.drink_question_asked).length  / total : 0;
+    const bothRate       = total ? items.filter(i => i.tasks?.order_placed && i.tasks?.drink_question_asked).length / total : 0;
     const guindexRate  = total ? items.filter(i => i.tasks?.guindex_question_asked).length     / total : 0;
 
     const msgCounts = items.map(i => (i.history ?? []).length);
@@ -311,7 +328,7 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
       else sentiment.unknown++;
     }
 
-    return { total, orderRate, questionRate, bothRate, guindexRate, avgMessages, avgDuration, sentiment };
+    return { total, orderRate, questionRate, bothRate, guindexRate, avgMessages, avgDuration, sentiment, drinkLabel };
   });
 
   // ── POST /api/beans/order (AI tool callback) ──────────────────────────────
@@ -329,7 +346,7 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
     const mixologistAuth = process.env.MIXOLOGIST_AUTH!;
 
     const externalPayload = {
-      event: "signal-berlin",
+      event: process.env.EVENT_NAME ?? "signal-berlin",
       order: {
         status: "queued",
         key: new Date().toISOString(),
@@ -366,7 +383,7 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
       const syncItem = await getSyncItem(callSid).fetch();
       const current = syncItem.data as CallTrackerItem;
       await updateCallTracker(callSid, {
-        tasks: { coffee_order_placed: true, coffee_question_asked: current.tasks.coffee_question_asked, guindex_question_asked: current.tasks.guindex_question_asked },
+        tasks: { order_placed: true, drink_question_asked: current.tasks.drink_question_asked, guindex_question_asked: current.tasks.guindex_question_asked },
       });
     } catch (err) {
       console.error("[order] Sync error:", err);
