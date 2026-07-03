@@ -93,6 +93,11 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
   });
   app.get("/summary", (_, reply) => reply.sendFile("summary.html"));
 
+  // ── GET /intelligence-results (health check) ─────────────────────────────
+  app.get("/intelligence-results", (_, reply) => {
+    reply.send({ ok: true, service: "tac-voice", endpoint: "intelligence-results" });
+  });
+
   // ── POST /intelligence-results (Conversation Intelligence results) ─────────────
   app.post("/intelligence-results", async (req) => {
     const body = req.body as { operatorResults?: OperatorResult[] } ?? {};

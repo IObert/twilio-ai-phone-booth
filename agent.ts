@@ -61,7 +61,10 @@ if (knowledgeBaseId) {
     { apiKey: process.env.TWILIO_API_KEY!, apiSecret: process.env.TWILIO_API_SECRET! } as any,
     undefined as any,
   );
-  const tacTool = await createKnowledgeTools(kbClient).forKnowledgeBaseAsync(knowledgeBaseId);
+  const tacTool = await createKnowledgeTools(kbClient).forKnowledgeBaseAsync(knowledgeBaseId, {
+    name: "search_knowledge_base",
+    description: "Search the Twilio knowledge base for relevant information",
+  });
   knowledgeToolName = tacTool.name;
   knowledgeSearchImpl = tacTool.implementation as (args: { query: string }) => Promise<unknown>;
 }
@@ -292,6 +295,7 @@ function createSession(
   });
 
   ws.on("message", (data: WebSocket.RawData) => {
+    console.log(`[${convId}] OpenAI WS message:`, data.toString());
     handleOpenAIEvent(convId, state, JSON.parse(data.toString())).catch((err) => {
       console.error(`[${convId}] event handler error:`, err);
       if (state.stream) { errorStream(state.stream, err instanceof Error ? err : new Error(String(err))); state.stream = null; }

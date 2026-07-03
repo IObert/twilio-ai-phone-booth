@@ -4,24 +4,25 @@
 	"description": "Voice agent server with Twilio, OpenAI, and Twilio Agent Connect",
 	"main": "server.ts",
 	"type": "module",
+	"packageManager": "pnpm@10.27.0",
 	"scripts": {
-		"start": "node --loader ts-node/esm --no-warnings server.ts",
-		"dev": "ts-node --esm server.ts",
-		"reset-stats": "ts-node --esm scripts/reset-stats.ts"
+		"start": "tsx server.ts",
+		"dev": "tsx server.ts",
+		"reset-stats": "tsx scripts/reset-stats.ts"
 	},
 	"devDependencies": {
-		"@types/node": "^20.0.0",
+		"@types/node": "^26.1.0",
 		"@types/ws": "^8.18.1",
-		"ts-node": "^10.9.0",
-		"typescript": "^5.0.0"
+		"tsx": "^4.19.4",
+		"typescript": "^6.0.3"
 	},
 	"dependencies": {
 		"@fastify/static": "^9.1.3",
 		"dotenv": "^17.4.2",
-		"fastify": "^5.8.5",
-		"openai": "^6.38.0",
+		"fastify": "^5.9.0",
+		"openai": "^6.45.0",
 		"twilio": "^6.0.2",
-		"twilio-agent-connect": "^1.0.2",
-		"ws": "^8.20.1"
+		"twilio-agent-connect": "^1.0.3",
+		"ws": "^8.21.0"
 	}
 }
