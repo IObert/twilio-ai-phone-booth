@@ -1,14 +1,31 @@
 import { config } from "dotenv";
 import WebSocket from "ws";
 import twilio from "twilio";
-import { MemoryPromptBuilder, KnowledgeClient, createKnowledgeTools } from "twilio-agent-connect";
-import type { ConversationSession, TACMemoryResponse } from "twilio-agent-connect";
+import {
+  createKnowledgeTools,
+  KnowledgeClient,
+  MemoryPromptBuilder,
+} from "twilio-agent-connect";
+import type {
+  ConversationSession,
+  TACMemoryResponse,
+} from "twilio-agent-connect";
 import { updateCallTracker } from "./sync.ts";
-
 
 config();
 
-const twilioClient = twilio(process.env.TWILIO_API_KEY, process.env.TWILIO_API_SECRET, { accountSid: process.env.TWILIO_ACCOUNT_SID });
+// Fail fast if critical env vars contain invalid characters (e.g. newline from missing closing quote)
+for (const key of ["OPENAI_API_KEY", "TWILIO_API_KEY", "TWILIO_API_SECRET", "TWILIO_ACCOUNT_SID"]) {
+  const val = process.env[key];
+  if (!val) { console.error(`[startup] Missing required env var: ${key}`); process.exit(1); }
+  if (/[\r\n]/.test(val)) { console.error(`[startup] ${key} contains a newline — check for a missing closing quote in .env`); process.exit(1); }
+}
+
+const twilioClient = twilio(
+  process.env.TWILIO_API_KEY,
+  process.env.TWILIO_API_SECRET,
+  { accountSid: process.env.TWILIO_ACCOUNT_SID },
+);
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 const BASE_URL = `http://localhost:${process.env.PORT ?? 8000}/api/beans`;
 
@@ -34,17 +51,27 @@ function parseMenuItems(raw: string): { name: string; description: string }[] {
       const p = entry.indexOf("(");
       return p === -1
         ? { name: entry, description: "" }
-        : { name: entry.slice(0, p).trim(), description: entry.slice(p + 1, entry.lastIndexOf(")")).trim() };
+        : {
+          name: entry.slice(0, p).trim(),
+          description: entry.slice(p + 1, entry.lastIndexOf(")")).trim(),
+        };
     })
     .filter((i) => i.name);
 }
 
-const DEFAULT_COFFEE_MENU = "Espresso,Cortado,Cappuccino,Flat White,Americano,Matcha Latte,Cold Brew,Iced Matcha,Iced Latte";
-const DEFAULT_SMOOTHIE_MENU = "Macarena(Strawberry, Pineapple, Apple, Passion Fruit, Goji, Vanilla),La Isla Bonita(Pineapple, Banana, Coconut Milk, Dates, Blue Spirulina),Calma(Mango, Pineapple, Spinach, Banana, Almonds, Ginger, Lemon)";
+const DEFAULT_COFFEE_MENU =
+  "Espresso,Cortado,Cappuccino,Flat White,Americano,Matcha Latte,Cold Brew,Iced Matcha,Iced Latte";
+const DEFAULT_SMOOTHIE_MENU =
+  "Macarena(Strawberry, Pineapple, Apple, Passion Fruit, Goji, Vanilla),La Isla Bonita(Pineapple, Banana, Coconut Milk, Dates, Blue Spirulina),Calma(Mango, Pineapple, Spinach, Banana, Almonds, Ginger, Lemon)";
 
-const menuItems = parseMenuItems(process.env.MENU_ITEMS ?? (isSmoothie ? DEFAULT_SMOOTHIE_MENU : DEFAULT_COFFEE_MENU));
+const menuItems = parseMenuItems(
+  process.env.MENU_ITEMS ??
+    (isSmoothie ? DEFAULT_SMOOTHIE_MENU : DEFAULT_COFFEE_MENU),
+);
 export const menuNames = menuItems.map((i) => i.name);
-const menuForPrompt = menuItems.map((i) => i.description ? `${i.name} (${i.description})` : i.name).join(", ");
+const menuForPrompt = menuItems.map((i) =>
+  i.description ? `${i.name} (${i.description})` : i.name
+).join(", ");
 
 export const drinkLabel = DRINK_TYPE;
 const drinkLabelUp = DRINK_TYPE.toUpperCase();
@@ -52,28 +79,46 @@ export const venueLabel = isSmoothie ? "Smoothie Bar" : "Twilio Cafe";
 export const roleLabel = isSmoothie ? "Smoothie Bartender" : "Barista";
 export const drinkIcon = isSmoothie ? "🍹" : "☕";
 
-let knowledgeSearchImpl: ((args: { query: string }) => Promise<unknown>) | null = null;
+let knowledgeSearchImpl:
+  | ((args: { query: string }) => Promise<unknown>)
+  | null = null;
 let knowledgeToolName: string | null = null;
 
 const knowledgeBaseId = process.env.TWILIO_TAC_KNOWLEDGE_BASE_ID;
 if (knowledgeBaseId) {
   const kbClient = new KnowledgeClient(
-    { apiKey: process.env.TWILIO_API_KEY!, apiSecret: process.env.TWILIO_API_SECRET! } as any,
+    {
+      apiKey: process.env.TWILIO_API_KEY!,
+      apiSecret: process.env.TWILIO_API_SECRET!,
+    } as any,
     undefined as any,
   );
-  const tacTool = await createKnowledgeTools(kbClient).forKnowledgeBaseAsync(knowledgeBaseId, {
-    name: "search_knowledge_base",
-    description: "Search the Twilio knowledge base for relevant information",
-  });
+  const tacTool = await createKnowledgeTools(kbClient).forKnowledgeBaseAsync(
+    knowledgeBaseId,
+    {
+      name: "search_knowledge_base",
+      description: "Search the Twilio knowledge base for relevant information",
+    },
+  );
   knowledgeToolName = tacTool.name;
-  knowledgeSearchImpl = tacTool.implementation as (args: { query: string }) => Promise<unknown>;
+  knowledgeSearchImpl = tacTool.implementation as (
+    args: { query: string },
+  ) => Promise<unknown>;
 }
 
-async function appendSyncHistory(callSid: string, role: "user" | "ai", text: string): Promise<void> {
+async function appendSyncHistory(
+  callSid: string,
+  role: "user" | "ai",
+  text: string,
+): Promise<void> {
   const syncServiceSid = process.env.TWILIO_SYNC_SERVICE_SID!;
   const item = await twilioClient.sync.v1.services(syncServiceSid)
     .syncMaps("callTracker").syncMapItems(callSid).fetch();
-  const current = item.data as { status: string; tasks: object; history: { role: string; text: string }[] };
+  const current = item.data as {
+    status: string;
+    tasks: object;
+    history: { role: string; text: string }[];
+  };
   await twilioClient.sync.v1.services(syncServiceSid)
     .syncMaps("callTracker").syncMapItems(callSid).update({
       data: { ...current, history: [...current.history, { role, text }] },
@@ -87,7 +132,10 @@ export const WELCOME_GREETING = eventDisplayName
   ? `Welcome to ${eventDisplayName}! I'm Olivia. I can tell you all about Guinness pint prices across the UK, or help you with a ${drinkLabel} question. What's on your mind?`
   : `Hi, I'm Olivia. I can tell you all about Guinness pint prices across the UK, or help you with a ${drinkLabel} question. What's on your mind?`;
 
-const SYSTEM_INSTRUCTIONS = `You are Olivia, a friendly AI ${roleLabel} at ${venueLabel}${eventDisplayName ? ` during ${eventDisplayName}` : ""}. You are talking to customers over the phone.
+const SYSTEM_INSTRUCTIONS =
+  `You are Olivia, a friendly AI ${roleLabel} at ${venueLabel}${
+    eventDisplayName ? ` during ${eventDisplayName}` : ""
+  }. You are talking to customers over the phone.
 
 CRITICAL — PHONE CALL RULES:
 - Never use markdown, bullet points, headers, or lists. Plain spoken sentences only.
@@ -100,7 +148,7 @@ GUINNDEX PINT PRICES: The Guinndex (guinndex.co.uk) is an AI-powered survey of G
 
 ${drinkLabelUp} QUESTION: Answer any question the customer has about ${drinkLabel}s — types, ingredients, menu items, preferences. After answering, call complete_drink_question.
 
-${drinkLabelUp} ORDER (optional): If the customer wants to order, great. Menu: ${menuForPrompt}. Once confirmed, call submit_order and read back the order number. Never push the customer to order.
+${drinkLabelUp} ORDER (optional): If the customer wants to order, great. Menu: ${menuForPrompt}. Each ${drinkLabel} comes as listed — do not ask about modifications or offer to customise it. Once confirmed, call submit_order and read back the order number. Never push the customer to order.
 
 For anything about Twilio products or pricing, tell them to ask at the Twilio booth.
 
@@ -139,7 +187,8 @@ const tools: object[] = [
   {
     type: "function",
     name: "complete_guindex_question",
-    description: "Marks the Guinndex pint price question as complete after answering a customer's question about Guinness pint prices in UK pubs.",
+    description:
+      "Marks the Guinndex pint price question as complete after answering a customer's question about Guinness pint prices in UK pubs.",
     parameters: {
       type: "object",
       properties: { question: { type: "string" } },
@@ -149,7 +198,8 @@ const tools: object[] = [
   {
     type: "function",
     name: "end_call",
-    description: "Terminates the current phone call. Call this when the user asks to hang up or says goodbye.",
+    description:
+      "Terminates the current phone call. Call this when the user asks to hang up or says goodbye.",
     parameters: { type: "object", properties: {}, required: [] },
   },
 ];
@@ -158,7 +208,8 @@ if (knowledgeSearchImpl && knowledgeToolName) {
   tools.push({
     type: "function",
     name: knowledgeToolName,
-    description: "Search the Guinndex knowledge base for Guinness pint price data. Use this to answer any question about pub prices, cheapest or dearest pints, price gaps, or averages in a given UK area or town.",
+    description:
+      "Search the Guinndex knowledge base for Guinness pint price data. Use this to answer any question about pub prices, cheapest or dearest pints, price gaps, or averages in a given UK area or town.",
     parameters: {
       type: "object",
       properties: { query: { type: "string" } },
@@ -173,12 +224,18 @@ const TOOL_URLS: Record<string, string> = {
   complete_guindex_question: `${BASE_URL}/guindexQuestion`,
 };
 
-async function executeTool(name: string, args: unknown, callSid: string | undefined): Promise<string> {
+async function executeTool(
+  name: string,
+  args: unknown,
+  callSid: string | undefined,
+): Promise<string> {
   if (name === knowledgeToolName && knowledgeSearchImpl) {
     const result = await knowledgeSearchImpl(args as { query: string });
     return JSON.stringify(result);
   }
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (callSid) headers["x-call-sid"] = callSid;
   const res = await fetch(TOOL_URLS[name], {
     method: "POST",
@@ -200,17 +257,23 @@ interface StreamController {
 
 function pushToken(ctrl: StreamController, token: string): void {
   ctrl.tokenQueue.push(token);
-  const n = ctrl.notify; ctrl.notify = null; n?.();
+  const n = ctrl.notify;
+  ctrl.notify = null;
+  n?.();
 }
 
 function finishStream(ctrl: StreamController): void {
   ctrl.finished = true;
-  const n = ctrl.notify; ctrl.notify = null; n?.();
+  const n = ctrl.notify;
+  ctrl.notify = null;
+  n?.();
 }
 
 function errorStream(ctrl: StreamController, err: Error): void {
   ctrl.error = err;
-  const n = ctrl.notify; ctrl.notify = null; n?.();
+  const n = ctrl.notify;
+  ctrl.notify = null;
+  n?.();
 }
 
 async function* drainStream(ctrl: StreamController): AsyncGenerator<string> {
@@ -222,7 +285,9 @@ async function* drainStream(ctrl: StreamController): AsyncGenerator<string> {
     } else if (ctrl.finished) {
       return;
     } else {
-      await new Promise<void>((resolve) => { ctrl.notify = resolve; });
+      await new Promise<void>((resolve) => {
+        ctrl.notify = resolve;
+      });
     }
   }
 }
@@ -237,12 +302,15 @@ interface PendingRequest {
 interface ConversationState {
   ws: WebSocket;
   wsReady: boolean;
-  wsQueue: string[];            // raw frames held until socket opens
+  wsQueue: string[]; // raw frames held until socket opens
   input: Array<Record<string, unknown>>;
-  busy: boolean;                // true while a response.create is in flight
+  busy: boolean; // true while a response.create is in flight
   requestQueue: PendingRequest[]; // serialized user requests
   stream: StreamController | null;
-  functionCalls: Map<string, { name: string; args: string; callId: string; itemId: string }>;
+  functionCalls: Map<
+    string,
+    { name: string; args: string; callId: string; itemId: string }
+  >;
   getCallSid: () => string | undefined;
   pendingEndCall: boolean;
 }
@@ -256,7 +324,7 @@ function wsSend(state: ConversationState, payload: unknown): void {
   state.wsReady ? state.ws.send(json) : state.wsQueue.push(json);
 }
 
-function dispatchNext(convId: string, state: ConversationState): void {
+function dispatchNext(_convId: string, state: ConversationState): void {
   if (state.busy || state.requestQueue.length === 0) return;
   const next = state.requestQueue.shift()!;
   state.busy = true;
@@ -295,23 +363,39 @@ function createSession(
   });
 
   ws.on("message", (data: WebSocket.RawData) => {
-    console.log(`[${convId}] OpenAI WS message:`, data.toString());
-    handleOpenAIEvent(convId, state, JSON.parse(data.toString())).catch((err) => {
-      console.error(`[${convId}] event handler error:`, err);
-      if (state.stream) { errorStream(state.stream, err instanceof Error ? err : new Error(String(err))); state.stream = null; }
-      state.busy = false;
-      dispatchNext(convId, state);
-    });
+    handleOpenAIEvent(convId, state, JSON.parse(data.toString())).catch(
+      (err) => {
+        console.error(`[${convId}] event handler error:`, err);
+        if (state.stream) {
+          errorStream(
+            state.stream,
+            err instanceof Error ? err : new Error(String(err)),
+          );
+          state.stream = null;
+        }
+        state.busy = false;
+        dispatchNext(convId, state);
+      },
+    );
   });
 
   ws.on("error", (err) => {
     console.error(`[${convId}] OpenAI WS error:`, err);
-    if (state.stream) { errorStream(state.stream, err instanceof Error ? err : new Error(String(err))); state.stream = null; }
+    if (state.stream) {
+      errorStream(
+        state.stream,
+        err instanceof Error ? err : new Error(String(err)),
+      );
+      state.stream = null;
+    }
   });
 
   ws.on("close", (code) => {
     const err = new Error(`OpenAI WebSocket closed (${code})`);
-    if (state.stream) { errorStream(state.stream, err); state.stream = null; }
+    if (state.stream) {
+      errorStream(state.stream, err);
+      state.stream = null;
+    }
     for (const r of state.requestQueue) errorStream(r.ctrl, err);
     state.requestQueue.length = 0;
     sessions.delete(convId);
@@ -327,7 +411,11 @@ export function warmSession(callSid: string): void {
   }
 }
 
-export function promoteSession(callSid: string, convId: string, getCallSid: () => string | undefined): void {
+export function promoteSession(
+  callSid: string,
+  convId: string,
+  getCallSid: () => string | undefined,
+): void {
   const state = sessions.get(callSid);
   if (!state) return;
   state.getCallSid = getCallSid;
@@ -342,28 +430,35 @@ async function handleOpenAIEvent(
   state: ConversationState,
   event: Record<string, unknown>,
 ): Promise<void> {
-
   if (event.type === "response.output_text.delta") {
     if (state.stream) pushToken(state.stream, event.delta as string);
-
   } else if (event.type === "response.output_text.done") {
     state.input.push({ role: "assistant", content: event.text as string });
     const callSid = state.getCallSid();
     if (callSid) {
       appendSyncHistory(callSid, "ai", event.text as string)
-        .catch((err: unknown) => console.error(`[${convId}] appendSyncHistory failed:`, err));
+        .catch((err: unknown) =>
+          console.error(`[${convId}] appendSyncHistory failed:`, err)
+        );
     }
-
   } else if (event.type === "response.output_item.added") {
-    const item = event.item as { type: string; id: string; name?: string; call_id?: string } | undefined;
+    const item = event.item as {
+      type: string;
+      id: string;
+      name?: string;
+      call_id?: string;
+    } | undefined;
     if (item?.type === "function_call" && item.id) {
-      state.functionCalls.set(item.id, { name: item.name ?? "", args: "", callId: item.call_id ?? "", itemId: item.id });
+      state.functionCalls.set(item.id, {
+        name: item.name ?? "",
+        args: "",
+        callId: item.call_id ?? "",
+        itemId: item.id,
+      });
     }
-
   } else if (event.type === "response.function_call_arguments.delta") {
     const fc = state.functionCalls.get(event.item_id as string);
     if (fc) fc.args += (event.delta as string) ?? "";
-
   } else if (event.type === "response.function_call_arguments.done") {
     const fc = state.functionCalls.get(event.item_id as string);
     if (!fc) return;
@@ -372,16 +467,36 @@ async function handleOpenAIEvent(
     let result: string;
     if (fc.name === "end_call") {
       state.pendingEndCall = true;
-      result = "Farewell message queued. Say a brief goodbye to the caller now.";
+      result =
+        "Farewell message queued. Say a brief goodbye to the caller now.";
     } else {
-      try { result = await executeTool(fc.name, JSON.parse(fc.args || "{}"), state.getCallSid()); }
-      catch (err) { result = JSON.stringify({ error: err instanceof Error ? err.message : String(err) }); }
+      try {
+        result = await executeTool(
+          fc.name,
+          JSON.parse(fc.args || "{}"),
+          state.getCallSid(),
+        );
+      } catch (err) {
+        result = JSON.stringify({
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
 
     // The Responses API is stateless: the follow-up must include the full history
     // *including* the function_call item itself, otherwise OpenAI can't match the call_id.
-    state.input.push({ type: "function_call", id: fc.itemId, call_id: fc.callId, name: fc.name, arguments: fc.args || "{}" });
-    state.input.push({ type: "function_call_output", call_id: fc.callId, output: result });
+    state.input.push({
+      type: "function_call",
+      id: fc.itemId,
+      call_id: fc.callId,
+      name: fc.name,
+      arguments: fc.args || "{}",
+    });
+    state.input.push({
+      type: "function_call_output",
+      call_id: fc.callId,
+      output: result,
+    });
 
     wsSend(state, {
       type: "response.create",
@@ -390,13 +505,17 @@ async function handleOpenAIEvent(
       input: [...state.input],
       tools,
     });
-
   } else if (event.type === "response.completed") {
     type OutputItem = { type: string };
     const response = event.response as { output?: OutputItem[] } | undefined;
-    const hasFunctionCall = response?.output?.some((o) => o.type === "function_call");
+    const hasFunctionCall = response?.output?.some((o) =>
+      o.type === "function_call"
+    );
     if (!hasFunctionCall) {
-      if (state.stream) { finishStream(state.stream); state.stream = null; }
+      if (state.stream) {
+        finishStream(state.stream);
+        state.stream = null;
+      }
       state.busy = false;
       if (state.pendingEndCall) {
         state.pendingEndCall = false;
@@ -405,18 +524,22 @@ async function handleOpenAIEvent(
           // Delay to allow TTS playback of the farewell before hanging up
           setTimeout(() => {
             twilioClient.calls(callSid).update({ status: "completed" })
-              .catch((err: unknown) => console.error(`[${convId}] end_call hangup failed:`, err));
+              .catch((err: unknown) =>
+                console.error(`[${convId}] end_call hangup failed:`, err)
+              );
           }, 3000);
         }
       } else {
         dispatchNext(convId, state);
       }
     }
-
   } else if (event.type === "error") {
     console.error(`[${convId}] OpenAI error:`, JSON.stringify(event));
     const err = new Error((event.message as string) ?? JSON.stringify(event));
-    if (state.stream) { errorStream(state.stream, err); state.stream = null; }
+    if (state.stream) {
+      errorStream(state.stream, err);
+      state.stream = null;
+    }
     state.busy = false;
     dispatchNext(convId, state);
   }
@@ -424,7 +547,9 @@ async function handleOpenAIEvent(
 
 // ── Public API ─────────────────────────────────────────────────────────────────
 
-function extractMemoryLists(memory: TACMemoryResponse | undefined): { observations: string[]; summaries: string[] } {
+function extractMemoryLists(
+  memory: TACMemoryResponse | undefined,
+): { observations: string[]; summaries: string[] } {
   if (!memory) return { observations: [], summaries: [] };
   const data = (memory as any)._data;
   if (!data) return { observations: [], summaries: [] };
@@ -432,8 +557,12 @@ function extractMemoryLists(memory: TACMemoryResponse | undefined): { observatio
   // _data can be an array (older format) or an object { observations, summaries, communications }
   if (Array.isArray(data)) return { observations: [], summaries: [] };
 
-  const observations: string[] = (data.observations ?? []).map((o: any) => o?.content ?? o?.text ?? String(o)).filter(Boolean);
-  const summaries: string[] = (data.summaries ?? []).map((s: any) => s?.content ?? s?.text ?? String(s)).filter(Boolean);
+  const observations: string[] = (data.observations ?? []).map((o: any) =>
+    o?.content ?? o?.text ?? String(o)
+  ).filter(Boolean);
+  const summaries: string[] = (data.summaries ?? []).map((s: any) =>
+    s?.content ?? s?.text ?? String(s)
+  ).filter(Boolean);
   return { observations, summaries };
 }
 
@@ -444,7 +573,11 @@ export function handleMessage(
   session: ConversationSession,
   getCallSid: () => string | undefined,
 ): AsyncGenerator<string> {
-  const systemPrompt = MemoryPromptBuilder.compose(SYSTEM_INSTRUCTIONS, memory, session);
+  const systemPrompt = MemoryPromptBuilder.compose(
+    SYSTEM_INSTRUCTIONS,
+    memory,
+    session,
+  );
 
   let state = sessions.get(convId);
   if (!state) {
@@ -455,15 +588,24 @@ export function handleMessage(
 
   const sid = state.getCallSid();
   if (sid) {
-    appendSyncHistory(sid, "user", message).catch((err: unknown) => console.error(`[${convId}] appendSyncHistory user failed:`, err));
+    appendSyncHistory(sid, "user", message).catch((err: unknown) =>
+      console.error(`[${convId}] appendSyncHistory user failed:`, err)
+    );
     const { observations, summaries } = extractMemoryLists(memory);
     if (observations.length || summaries.length) {
-      updateCallTracker(sid, { observations, summaries }).catch((err: unknown) => console.error(`[${convId}] updateMemory failed:`, err));
+      updateCallTracker(sid, { observations, summaries }).catch((
+        err: unknown,
+      ) => console.error(`[${convId}] updateMemory failed:`, err));
     }
   }
   state.input.push({ role: "user", content: message });
 
-  const ctrl: StreamController = { tokenQueue: [], notify: null, finished: false, error: null };
+  const ctrl: StreamController = {
+    tokenQueue: [],
+    notify: null,
+    finished: false,
+    error: null,
+  };
 
   state.requestQueue.push({
     ctrl,

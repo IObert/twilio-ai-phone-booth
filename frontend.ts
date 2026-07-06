@@ -384,9 +384,10 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
       },
     };
 
+    const orderUrl = `${mixologistBase.replace(/\/$/, "")}/api/order`;
     let orderNumber: string | number = "N/A";
     try {
-      const res = await fetch(`${mixologistBase}/api/order`, {
+      const res = await fetch(orderUrl, {
         method: "POST",
         headers: {
           Authorization: `Basic ${btoa(mixologistAuth + ":")}`,
