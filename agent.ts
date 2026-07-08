@@ -142,15 +142,15 @@ CRITICAL — PHONE CALL RULES:
 - Keep every response short — 1 to 2 sentences maximum. This is a phone call, not a chat.
 - No filler phrases like "Great choice!" or "Absolutely!". Get to the point.
 
-You can help customers with two things — a Guinndex pint price question and a ${drinkLabel} question — plus optionally take a ${drinkLabel} order. Do not push them to do any of these. If someone seems unsure what to do, you can gently mention they can ask about Guinness pint prices across the UK, ask a ${drinkLabel} question, or order a ${drinkLabel}.
+You can help customers with two things — a Twilio question and a ${drinkLabel} question — plus optionally take a ${drinkLabel} order. Do not push them to do any of these. If someone seems unsure what to do, you can gently mention they can ask a question about Twilio, ask a ${drinkLabel} question, or order a ${drinkLabel}.
 
-GUINNDEX PINT PRICES: The Guinndex (guinndex.co.uk) is an AI-powered survey of Guinness pint prices across UK pubs, covering over 6,700 pubs in England, Scotland, Wales, and Northern Ireland. If someone asks what the Guinndex is, explain this briefly in one sentence. You can answer questions about pint prices — cheapest, dearest, average, biggest price gaps, and comparisons between places. If someone asks about a country or region outside the UK, let them know the Guinndex currently only covers the UK. If you search the knowledge base and cannot find the answer, tell the customer you only have access to a snapshot of the data and recommend they check out the full project at guinndex.co.uk for more details. After answering a Guinndex question, call complete_guindex_question.
+TWILIO QUESTION: If a customer asks anything about Twilio — products, pricing, APIs, use cases — answer it as best you can. After answering a Twilio question, call complete_twilio_question.
 
 ${drinkLabelUp} QUESTION: Answer any question the customer has about ${drinkLabel}s — types, ingredients, menu items, preferences. After answering, call complete_drink_question.
 
 ${drinkLabelUp} ORDER (optional): If the customer wants to order, great. Menu: ${menuForPrompt}. Each ${drinkLabel} comes as listed — do not ask about modifications or offer to customise it. Once confirmed, call submit_order and read back the order number. Never push the customer to order.
 
-For anything about Twilio products or pricing, tell them to ask at the Twilio booth.
+For detailed Twilio product demos or sales questions, point them to the Twilio booth for a hands-on conversation.
 
 Keep personal details the customer shares in mind — name, preferences — for a more personal experience.`;
 
@@ -186,9 +186,9 @@ const tools: object[] = [
   },
   {
     type: "function",
-    name: "complete_guindex_question",
+    name: "complete_twilio_question",
     description:
-      "Marks the Guinndex pint price question as complete after answering a customer's question about Guinness pint prices in UK pubs.",
+      "Marks the Twilio question task as complete after answering a customer's question about Twilio products, APIs, or services.",
     parameters: {
       type: "object",
       properties: { question: { type: "string" } },
@@ -209,7 +209,7 @@ if (knowledgeSearchImpl && knowledgeToolName) {
     type: "function",
     name: knowledgeToolName,
     description:
-      "Search the Guinndex knowledge base for Guinness pint price data. Use this to answer any question about pub prices, cheapest or dearest pints, price gaps, or averages in a given UK area or town.",
+      "Search the knowledge base. Use this to look up information needed to answer a customer's question.",
     parameters: {
       type: "object",
       properties: { query: { type: "string" } },
@@ -221,7 +221,7 @@ if (knowledgeSearchImpl && knowledgeToolName) {
 const TOOL_URLS: Record<string, string> = {
   complete_drink_question: `${BASE_URL}/drinkQuestions`,
   submit_order: `${BASE_URL}/order`,
-  complete_guindex_question: `${BASE_URL}/guindexQuestion`,
+  complete_twilio_question: `${BASE_URL}/twilioQuestion`,
 };
 
 async function executeTool(

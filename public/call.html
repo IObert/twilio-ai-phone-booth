@@ -320,9 +320,9 @@
     <div class="task-chip-check"></div>
     <div>%%DRINK_LABEL_CAP%% question</div>
   </div>
-  <div class="task-chip" id="task-guindex">
+  <div class="task-chip" id="task-twilio">
     <div class="task-chip-check"></div>
-    <div>Guinndex question</div>
+    <div>Twilio question</div>
   </div>
   <div class="task-chip" id="task-order">
     <div class="task-chip-check"></div>
@@ -425,14 +425,14 @@ function addToolCard(data) {
         <div class="tool-detail">${escHtml(String(data.question ?? ''))}</div>
       </div>`;
     markTask('task-question');
-  } else if (data.tool === 'guindexQuestion') {
+  } else if (data.tool === 'twilioQuestion') {
     card.innerHTML = `
-      <div class="tool-icon">🍺</div>
+      <div class="tool-icon">📡</div>
       <div>
-        <div class="tool-title">Guinndex Question Answered</div>
+        <div class="tool-title">Twilio Question Answered</div>
         <div class="tool-detail">${escHtml(String(data.question ?? ''))}</div>
       </div>`;
-    markTask('task-guindex');
+    markTask('task-twilio');
   } else if (data.tool === 'traitInferred') {
     card.innerHTML = `
       <div class="tool-icon">🏷️</div>
@@ -525,7 +525,7 @@ function applyStatus(value) {
 function applyTaskState(data) {
   if (data.drink_question_asked) markTask('task-question');
   if (data.order_placed)         markTask('task-order');
-  if (data.guindex_question_asked) markTask('task-guindex');
+  if (data.twilio_question_asked) markTask('task-twilio');
 }
 
 function applyHistory(messages) {
