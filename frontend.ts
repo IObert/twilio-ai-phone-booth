@@ -73,6 +73,17 @@ function requireBasicAuth(req: FastifyRequest, reply: FastifyReply): boolean {
 
 // ─── plugin ───────────────────────────────────────────────────────────────────
 
+interface RetryEntry {
+  originalCallSid: string;
+  retryCount: number;
+  to: string;
+  from: string;
+  twimlUrl: string;
+  statusCallbackUrl: string;
+}
+// Key: any callSid in a retry chain → entry with the original callSid and retry state.
+const retryMap = new Map<string, RetryEntry>();
+
 export async function registerFrontendRoutes(app: FastifyInstance): Promise<void> {
 
   // ── Clean HTML routes ─────────────────────────────────────────────────────
@@ -163,6 +174,14 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
         statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
       });
       callSid = call.sid;
+      retryMap.set(callSid, {
+        originalCallSid: callSid,
+        retryCount: 0,
+        to: sipAddress,
+        from,
+        twimlUrl: `${ngrokBase}/twiml`,
+        statusCallbackUrl: `${ngrokBase}/api/callStatus`,
+      });
     } catch (err) {
       console.error("[startBoothCall] Call error:", err);
       return reply.code(500).send({ success: false, error: String(err) });
@@ -215,6 +234,40 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
 
     if (!callSid || !callStatus) return { ok: true };
 
+    const retryable = callStatus === "busy" || callStatus === "no-answer";
+    const entry = retryMap.get(callSid);
+    const originalCallSid = entry?.originalCallSid ?? callSid;
+
+    if (retryable && entry && entry.retryCount < 2) {
+      console.log(`[callStatus] ${callStatus} on ${callSid} (attempt ${entry.retryCount + 1}/3) — retrying in 2s`);
+      await new Promise(r => setTimeout(r, 2000));
+      try {
+        const client = getTwilio();
+        const newCall = await client.calls.create({
+          to: entry.to,
+          from: entry.from,
+          url: entry.twimlUrl,
+          statusCallback: entry.statusCallbackUrl,
+          statusCallbackMethod: "POST",
+          statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
+        });
+        retryMap.set(newCall.sid, {
+          originalCallSid,
+          retryCount: entry.retryCount + 1,
+          to: entry.to,
+          from: entry.from,
+          twimlUrl: entry.twimlUrl,
+          statusCallbackUrl: entry.statusCallbackUrl,
+        });
+        retryMap.delete(callSid);
+        console.log(`[callStatus] Retry call placed: ${newCall.sid}`);
+      } catch (err) {
+        console.error("[callStatus] Retry call failed:", err);
+        await updateCallTracker(originalCallSid, { status: "failed" });
+      }
+      return { ok: true };
+    }
+
     const statusMap: Record<string, CallTrackerItem["status"]> = {
       initiated:     "calling",
       ringing:       "calling",
@@ -234,7 +287,8 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
         const secs = parseInt(raw, 10);
         if (!isNaN(secs)) patch.duration = secs;
       }
-      await updateCallTracker(callSid, patch);
+      await updateCallTracker(originalCallSid, patch);
+      if (callStatus === "completed" || callStatus === "failed") retryMap.delete(callSid);
     }
 
     return { ok: true };
@@ -268,6 +322,14 @@ export async function registerFrontendRoutes(app: FastifyInstance): Promise<void
         statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
       });
       callSid = call.sid;
+      retryMap.set(callSid, {
+        originalCallSid: callSid,
+        retryCount: 0,
+        to: sipAddress,
+        from,
+        twimlUrl: `${ngrokBase}/twiml`,
+        statusCallbackUrl: `${ngrokBase}/api/callStatus`,
+      });
     } catch (err) {
       console.error("[attractCall] Call error:", err);
       return reply.code(500).send({ success: false, error: String(err) });
