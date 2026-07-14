@@ -1,6 +1,9 @@
 import "dotenv/config";
 import twilio from "twilio";
+import { throttledQueue, seconds } from "throttled-queue";
 import { SYNC_MAP_NAME } from "../sync.ts";
+
+const throttle = throttledQueue({ maxPerInterval: 10, interval: seconds(1) });
 
 const client = twilio(
   process.env.TWILIO_API_KEY!,
@@ -24,11 +27,13 @@ console.log(`Deleting ${items.length} item(s) from '${SYNC_MAP_NAME}'...`);
 
 await Promise.all(
   items.map((item) =>
-    client.sync.v1
-      .services(syncServiceSid)
-      .syncMaps(SYNC_MAP_NAME)
-      .syncMapItems(item.key)
-      .remove()
+    throttle(() =>
+      client.sync.v1
+        .services(syncServiceSid)
+        .syncMaps(SYNC_MAP_NAME)
+        .syncMapItems(item.key)
+        .remove()
+    )
   )
 );
 

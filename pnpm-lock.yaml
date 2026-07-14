@@ -20,6 +20,9 @@ importers:
       openai:
         specifier: ^6.45.0
         version: 6.45.0(ws@8.21.0)(zod@4.4.3)
+      throttled-queue:
+        specifier: ^3.0.0
+        version: 3.0.0
       twilio:
         specifier: ^6.0.2
         version: 6.0.2
@@ -704,6 +707,9 @@ packages:
 
   thread-stream@3.1.0:
     resolution: {integrity: sha512-OqyPZ9u96VohAyMfJykzmivOrY2wfMSf3C5TtFJVgN+Hm6aj+voFhlK+kZEIv2FBh1X6Xp3DlnCOfEQ3B2J86A==}
+
+  throttled-queue@3.0.0:
+    resolution: {integrity: sha512-8X5YUdgDHaqy9DmJzoRWK45o2vzBZ7Rt4bT1Mody4TUuYOXSb7paRwDPVspCZiiW4rxZopgZQAwnhI2LU0QwFQ==}
 
   toad-cache@3.7.1:
     resolution: {integrity: sha512-5DXWzE4Vz7xNHsv+xQ+MGfJYyC78Aok3tEr0MNwHoRf7vZnga1mQXZ4/Nsodld4VR6Wd+VhfmqnNrsRJyYPfrQ==}
@@ -1392,6 +1398,8 @@ snapshots:
   thread-stream@3.1.0:
     dependencies:
       real-require: 0.2.0
+
+  throttled-queue@3.0.0: {}
 
   toad-cache@3.7.1: {}
 
