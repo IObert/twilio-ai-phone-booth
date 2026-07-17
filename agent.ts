@@ -311,6 +311,7 @@ interface ConversationState {
   >;
   getCallSid: () => string | undefined;
   pendingEndCall: boolean;
+  orderSubmitted: boolean;
 }
 
 const sessions = new Map<string, ConversationState>();
@@ -352,6 +353,7 @@ function createSession(
     functionCalls: new Map(),
     getCallSid,
     pendingEndCall: false,
+    orderSubmitted: false,
   };
 
   ws.on("open", () => {
@@ -467,6 +469,10 @@ async function handleOpenAIEvent(
       state.pendingEndCall = true;
       result =
         "Farewell message queued. Say a brief goodbye to the caller now.";
+    } else if (fc.name === "submit_order" && state.orderSubmitted) {
+      result = JSON.stringify({
+        error: "An order has already been placed for this call.",
+      });
     } else {
       try {
         result = await executeTool(
@@ -474,6 +480,7 @@ async function handleOpenAIEvent(
           JSON.parse(fc.args || "{}"),
           state.getCallSid(),
         );
+        if (fc.name === "submit_order") state.orderSubmitted = true;
       } catch (err) {
         result = JSON.stringify({
           error: err instanceof Error ? err.message : String(err),
